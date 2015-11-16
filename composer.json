@@ -1,6 +1,6 @@
 {
     "name": "nailsapp/driver-order-payment-gocardless",
-    "keywords": ["Nails", "Shed Collective", "CodeIgniter", "Order & Payments Module", "Driver", "GoCardless"],
+    "keywords": ["Nails", "Shed Collective", "CodeIgniter", "Order Payments Module", "Driver", "GoCardless"],
     "homepage": "http://nailsapp.co.uk/modules/order-payments/driver/gocardless",
     "description": "This is the \"GoCardless\" driver for the Nails Orders & Payments module.",
     "license": "MIT",

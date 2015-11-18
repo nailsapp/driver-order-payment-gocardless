@@ -32,7 +32,10 @@
         "nails" :
         {
             "type": "driver",
-            "subType": "order-payment"
+            "subType": "order-payment",
+            "moduleData": {
+                "className": "GoCardless"
+            }
         }
     },
     "autoload":

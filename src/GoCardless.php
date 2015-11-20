@@ -4,15 +4,15 @@
  * GoCardless payment Driver
  *
  * @package     Nails
- * @subpackage  driver-order-payment-gocardless
+ * @subpackage  driver-invoice-gocardless
  * @category    Driver
  * @author      Nails Dev Team
  * @link
  */
 
-namespace Nails\OrderPayment\Driver;
+namespace Nails\Invoice\Driver;
 
-use Nails\OrderPayment\Driver\Base;
+use Nails\Invoice\Driver\Base;
 
 class GoCardless extends Base
 {

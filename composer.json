@@ -1,8 +1,8 @@
 {
-    "name": "nailsapp/driver-order-payment-gocardless",
-    "keywords": ["Nails", "Shed Collective", "CodeIgniter", "Order Payments Module", "Driver", "GoCardless"],
-    "homepage": "http://nailsapp.co.uk/modules/order-payments/driver/gocardless",
-    "description": "This is the \"GoCardless\" driver for the Nails Orders & Payments module.",
+    "name": "nailsapp/driver-invoice-gocardless",
+    "keywords": ["Nails", "Shed Collective", "CodeIgniter", "Invoice Module", "Payments", "Driver", "GoCardless"],
+    "homepage": "http://nailsapp.co.uk/modules/invoice/driver/gocardless",
+    "description": "This is the \"GoCardless\" driver for the Nails Invoice module.",
     "license": "MIT",
     "authors":
     [
@@ -21,7 +21,7 @@
     "prefer-stable": true,
     "require":
     {
-        "nailsapp/module-order-payment": "dev-develop"
+        "nailsapp/module-invoice": "dev-develop"
     },
     "require-dev":
     {
@@ -32,7 +32,7 @@
         "nails" :
         {
             "type": "driver",
-            "subType": "order-payment",
+            "subType": "invoice",
             "moduleData": {
                 "className": "GoCardless"
             }
@@ -40,6 +40,6 @@
     },
     "autoload":
     {
-        "psr-4": {"Nails\\OrderPayment\\Driver\\": "src/"}
+        "psr-4": {"Nails\\Invoice\\Driver\\": "src/"}
     }
 }

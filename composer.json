@@ -31,6 +31,7 @@
     {
         "nails" :
         {
+            "name": "GoCardless",
             "type": "driver",
             "forModule": "nailsapp/module-invoice",
             "data": {

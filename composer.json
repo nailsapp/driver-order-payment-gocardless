@@ -33,8 +33,9 @@
         {
             "type": "driver",
             "forModule": "nailsapp/module-invoice",
-            "moduleData": {
-                "className": "GoCardless"
+            "data": {
+                "namespace": "Nails\\Invoice\\Driver\\",
+                "class": "GoCardless"
             }
         }
     },

@@ -32,7 +32,7 @@
         "nails" :
         {
             "type": "driver",
-            "subType": "invoice",
+            "forModule": "nailsapp/module-invoice",
             "moduleData": {
                 "className": "GoCardless"
             }

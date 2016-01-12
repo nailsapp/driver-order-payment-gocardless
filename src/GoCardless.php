@@ -12,6 +12,7 @@
 
 namespace Nails\Invoice\Driver;
 
+use Nails\Factory;
 use Nails\Invoice\Driver\Base;
 
 class GoCardless extends Base
@@ -21,19 +22,11 @@ class GoCardless extends Base
     // --------------------------------------------------------------------------
 
     /**
-     * Returns the driver's configurable options
-     * @return array
+     * Configures the driver
+     * @return object
      */
-    public function getConfig(){
-        return array();
-    }
-
-    // --------------------------------------------------------------------------
-
-    /**
-     * Configures the driver using the saved values from getConfig();
-     */
-    public function setConfig($aConfig){
+    public function setConfig($aConfig) {
+        parent::setConfig($aConfig);
         return $this;
     }
 
@@ -41,19 +34,23 @@ class GoCardless extends Base
 
     /**
      * Take a payment
-     * @return boolean
+     * @return \Nails\Invoice\Model\ChargeResponse
      */
-    public function charge(){
-        return true;
+    public function charge($aCard, $iAmount, $sCurrency) {
+
+        $oResponse = Factory::factory('ChargeResponse', 'nailsapp/module-invoice');
+        return $oResponse;
     }
 
     // --------------------------------------------------------------------------
 
     /**
      * Issue a refund for a payment
-     * @return boolean
+     * @return \Nails\Invoice\Model\RefundResponse
      */
-    public function refund(){
-        return true;
+    public function refund() {
+
+        $oResponse = Factory::factory('RefundResponse', 'nailsapp/module-invoice');
+        return $oResponse;
     }
 }

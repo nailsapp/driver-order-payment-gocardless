@@ -21,7 +21,8 @@
     "prefer-stable": true,
     "require":
     {
-        "nailsapp/module-invoice": "dev-develop"
+        "nailsapp/module-invoice": "dev-develop",
+        "gocardless/gocardless-pro"
     },
     "require-dev":
     {
@@ -37,7 +38,24 @@
             "forModule": "nailsapp/module-invoice",
             "data": {
                 "namespace": "Nails\\Invoice\\Driver\\",
-                "class": "GoCardless"
+                "class": "GoCardless",
+                "isRedirect": true,
+                "settings": [
+                    {
+                        "key": "sLabel",
+                        "label": "Label",
+                        "info": "The name of the provider, as seen by customers.",
+                        "default": "GoCardless"
+                    },
+                    {
+                        "key": "iLogoId",
+                        "label": "Logo",
+                        "info": "The logo of the provider, as seen by customers",
+                        "default": null,
+                        "type": "image",
+                        "bucket": "nailsapp-driver-invoice-gocardless"
+                    }
+                ]
             }
         }
     },

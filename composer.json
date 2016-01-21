@@ -37,7 +37,7 @@
             "subType": "payment",
             "forModule": "nailsapp/module-invoice",
             "data": {
-                "namespace": "Nails\\Invoice\\Driver\\",
+                "namespace": "Nails\\Invoice\\Driver\\Payment\\",
                 "class": "GoCardless",
                 "settings": [
                     {

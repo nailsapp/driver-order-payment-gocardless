@@ -10,7 +10,7 @@
  * @link
  */
 
-namespace Nails\Invoice\Driver;
+namespace Nails\Invoice\Driver\Payment;
 
 use Nails\Factory;
 use Nails\Invoice\Driver\PaymentBase;
@@ -33,13 +33,18 @@ class GoCardless extends PaymentBase
      * for basic credit card details.
      * @return mixed
      */
-    public function paymentFields()
+    public function getPaymentFields()
     {
         return array(
             array(
-                'key'   => '',
-                'label' => '',
-                'type'  => ''
+                'key'   => 'sort_code',
+                'label' => 'Sort Code',
+                'type'  => 'text'
+            ),
+            array(
+                'key'   => 'account_number',
+                'label' => 'Account Number',
+                'type'  => 'text'
             )
         );
     }

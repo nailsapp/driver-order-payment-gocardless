@@ -39,7 +39,6 @@
             "data": {
                 "namespace": "Nails\\Invoice\\Driver\\",
                 "class": "GoCardless",
-                "isRedirect": true,
                 "settings": [
                     {
                         "key": "sLabel",

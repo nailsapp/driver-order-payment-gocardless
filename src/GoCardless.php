@@ -18,6 +18,35 @@ use Nails\Invoice\Driver\PaymentBase;
 class GoCardless extends PaymentBase
 {
     /**
+     * Returns whether the driver uses a redirect payment flow or not.
+     * @return boolean
+     */
+    public function isRedirect()
+    {
+        return true;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Returns the payment fields the driver requires, use self::PAYMENT_FIELDS_CARD
+     * for basic credit card details.
+     * @return mixed
+     */
+    public function paymentFields()
+    {
+        return array(
+            array(
+                'key'   => '',
+                'label' => '',
+                'type'  => ''
+            )
+        );
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Take a payment
      * @return \Nails\Invoice\Model\ChargeResponse
      */

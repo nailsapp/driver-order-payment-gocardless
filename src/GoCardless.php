@@ -29,6 +29,18 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
+     * Returns any data which should be POSTED to the endpoint as part of a redirect
+     * flow; if empty a header redirect is used instead.
+     * @return array
+     */
+    public function getRedirectPostData()
+    {
+        return array();
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Returns the payment fields the driver requires, use self::PAYMENT_FIELDS_CARD
      * for basic credit card details.
      * @return mixed
@@ -37,14 +49,16 @@ class GoCardless extends PaymentBase
     {
         return array(
             array(
-                'key'   => 'sort_code',
-                'label' => 'Sort Code',
-                'type'  => 'text'
+                'key'      => 'sort_code',
+                'label'    => 'Sort Code',
+                'type'     => 'text',
+                'required' => true
             ),
             array(
-                'key'   => 'account_number',
-                'label' => 'Account Number',
-                'type'  => 'text'
+                'key'      => 'account_number',
+                'label'    => 'Account Number',
+                'type'     => 'text',
+                'required' => true
             )
         );
     }
@@ -53,9 +67,13 @@ class GoCardless extends PaymentBase
 
     /**
      * Take a payment
+     * @param  array   $aData      Any data to use for processing the transaction, e.g., card details
+     * @param  integer $iAmount    The amount to charge
+     * @param  string  $sCurrency  The currency to charge in
+     * @param  string  $sReturnUrl The return URL (if redirecting)
      * @return \Nails\Invoice\Model\ChargeResponse
      */
-    public function charge($aCard, $iAmount, $sCurrency)
+    public function charge($aData, $iAmount, $sCurrency, $sReturnUrl)
     {
         $oResponse = Factory::factory('ChargeResponse', 'nailsapp/module-invoice');
         return $oResponse;

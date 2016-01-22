@@ -53,6 +53,28 @@
                         "default": null,
                         "type": "image",
                         "bucket": "nailsapp-driver-invoice-gocardless"
+                    },
+                    {
+                        "legend": "Test API Keys",
+                        "fields": [
+                            {
+                                "key": "sAccessTokenSandbox",
+                                "label": "Access Token",
+                                "type": "password",
+                                "encrypted": true
+                            }
+                        ]
+                    },
+                    {
+                        "legend": "Live API Keys",
+                        "fields": [
+                            {
+                                "key": "sAccessTokenLive",
+                                "label": "Access Token",
+                                "type": "password",
+                                "encrypted": true
+                            }
+                        ]
                     }
                 ]
             }

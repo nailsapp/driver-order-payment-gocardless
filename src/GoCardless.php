@@ -13,6 +13,7 @@
 namespace Nails\Invoice\Driver\Payment;
 
 use Nails\Factory;
+use Nails\Environment;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
 
@@ -43,10 +44,9 @@ class GoCardless extends PaymentBase
 
     /**
      * Returns whether the driver is available to be used against the selected iinvoice
-     * @param \stdClass $oInvoice The invoice being charged
      * @return boolean
      */
-    public function isAvailable($oInvoice)
+    public function isAvailable()
     {
         // This driver can only be used with logged in users
         return isLoggedIn();
@@ -126,7 +126,7 @@ class GoCardless extends PaymentBase
 
         try {
 
-            if (ENVIRONMENT === 'PRODUCTION') {
+            if (Environment::is('PRODUCTION')) {
 
                 $sAccessToken = $this->getSetting('sAccessTokenLive');
                 $sEnvironment = \GoCardlessPro\Environment::LIVE;
@@ -267,16 +267,15 @@ class GoCardless extends PaymentBase
      * @param  \stdClass $oPayment  The Payment object
      * @param  \stdClass $oInvoice  The Invoice object
      * @param  array     $aGetVars  Any $_GET variables passed from the redirect flow
-     * @param  array     $aPostVars Any $_POST variables passed from the redirect flow
      * @return \Nails\Invoice\Model\CompleteResponse
      */
-    public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars)
+    public function complete($oPayment, $oInvoice, $aGetVars)
     {
         $oCompleteResponse = Factory::factory('CompleteResponse', 'nailsapp/module-invoice');
 
         try {
 
-            if (ENVIRONMENT === 'PRODUCTION') {
+            if (Environment::is('PRODUCTION')) {
 
                 $sAccessToken = $this->getSetting('sAccessTokenLive');
                 $sEnvironment = \GoCardlessPro\Environment::LIVE;
@@ -328,7 +327,7 @@ class GoCardless extends PaymentBase
                     $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
 
                     $oUserMeta->update(
-                        NAILS_DB_PREFIX . 'user_meta_invoice_gocardless_mandate',
+                        $this->sMandateTable,
                         activeUser('id'),
                         array(
                             'label'      => 'Direct Debit Mandate (Created ' . $oNow->format('jS F, Y') . ')',
@@ -348,7 +347,7 @@ class GoCardless extends PaymentBase
 
                     } else {
 
-                        $oChargeResponse->setStatusFailed(
+                        $oCompleteResponse->setStatusFailed(
                             null,
                             0,
                             'The gateway rejected the request, you may wish to try again.'
@@ -436,18 +435,5 @@ class GoCardless extends PaymentBase
         }
 
         return $sTxnId;
-    }
-
-    // --------------------------------------------------------------------------
-
-    /**
-     * Issue a refund for a payment
-     * @return \Nails\Invoice\Model\RefundResponse
-     */
-    public function refund()
-    {
-        dumpanddie('Refund');
-        $oRefundResponse = Factory::factory('RefundResponse', 'nailsapp/module-invoice');
-        return $oRefundResponse;
     }
 }

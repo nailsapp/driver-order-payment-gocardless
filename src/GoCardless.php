@@ -24,6 +24,10 @@ class GoCardless extends PaymentBase
 
     // --------------------------------------------------------------------------
 
+    const SESSION_TOKEN_KEY = 'gocardless_session_token';
+
+    // --------------------------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
@@ -109,6 +113,7 @@ class GoCardless extends PaymentBase
      * @param  \stdClass $oInvoice     The invoice object
      * @param  string    $sSuccessUrl  The URL to go to after successfull payment
      * @param  string    $sFailUrl     The URL to go to after failed payment
+     * @param  string    $sContinueUrl The URL to go to after payment is completed
      * @return \Nails\Invoice\Model\ChargeResponse
      */
     public function charge(
@@ -119,7 +124,8 @@ class GoCardless extends PaymentBase
         $oPayment,
         $oInvoice,
         $sSuccessUrl,
-        $sFailUrl
+        $sFailUrl,
+        $sContinueUrl
     )
     {
         $oChargeResponse = Factory::factory('ChargeResponse', 'nailsapp/module-invoice');
@@ -157,11 +163,23 @@ class GoCardless extends PaymentBase
 
             if (empty($this->aMandates)) {
 
+                /**
+                 * Generate a random session token
+                 * Gocardless uses this to verify that the person completing the redircet flow
+                 * is the same person who initiated it.
+                 */
+
+                Factory::helper('string');
+                $sSessionToken = random_string('alnum', 32);
+
+                $oSession = Factory::service('Session', 'nailsapp/module-auth');
+                $oSession->set_userdata(self::SESSION_TOKEN_KEY, $sSessionToken);
+
                 //  Create a new redirect flow
                 $oGCResponse = $oClient->redirectFlows()->create(
                     array(
                         'params' => array(
-                            'session_token'        => 'xxx',
+                            'session_token'        => $sSessionToken,
                             'success_redirect_url' => $sSuccessUrl
                         )
                     )
@@ -297,12 +315,25 @@ class GoCardless extends PaymentBase
                 )
             );
 
+            //  Retrieve data required for the completion
             $sRedirectFlowId = !empty($aGetVars['redirect_flow_id']) ? $aGetVars['redirect_flow_id'] : null;
+            $oSession        = Factory::service('Session', 'nailsapp/module-auth');
+            $sSessionToken   = $oSession->userdata(self::SESSION_TOKEN_KEY);
+
+            $oSession->unset_userdata(self::SESSION_TOKEN_KEY);
 
             if (empty($sRedirectFlowId)) {
 
                 $oCompleteResponse->setStatusFailed(
                     'The complete request was missing $_GET[\'redirect_flow_id\']',
+                    0,
+                    'The request failed to complete, data was missing.'
+                );
+
+            } elseif (empty($sSessionToken)) {
+
+                $oCompleteResponse->setStatusFailed(
+                    'The complete request was missing the sessino token',
                     0,
                     'The request failed to complete, data was missing.'
                 );
@@ -314,7 +345,7 @@ class GoCardless extends PaymentBase
                     $sRedirectFlowId,
                     array(
                         'params' => array(
-                            'session_token' => 'xxx'
+                            'session_token' => $sSessionToken
                         )
                     )
                 );
@@ -337,7 +368,12 @@ class GoCardless extends PaymentBase
                     );
 
                     //  Create a payment against the mandate
-                    $sTxnId = $this->createPayment($oClient, $sMandateId, $oPayment->amount->base, $oPayment->currency);
+                    $sTxnId = $this->createPayment(
+                        $oClient,
+                        $sMandateId,
+                        $oPayment->amount->base,
+                        $oPayment->currency
+                    );
 
                     if (!empty($sTxnId)) {
 

@@ -107,7 +107,8 @@ class GoCardless extends PaymentBase
      * Initiate a payment
      * @param  integer   $iAmount      The payment amount
      * @param  string    $sCurrency    The payment currency
-     * @param  array     $aData        An array of driver data
+     * @param  \stdClass $oData        The driver data object
+     * @param  \stdClass $oCustomData  The custom data object
      * @param  string    $sDescription The charge description
      * @param  \stdClass $oPayment     The payment object
      * @param  \stdClass $oInvoice     The invoice object
@@ -119,7 +120,8 @@ class GoCardless extends PaymentBase
     public function charge(
         $iAmount,
         $sCurrency,
-        $aData,
+        $oData,
+        $oCustomData,
         $sDescription,
         $oPayment,
         $oInvoice,
@@ -165,7 +167,7 @@ class GoCardless extends PaymentBase
 
                 /**
                  * Generate a random session token
-                 * Gocardless uses this to verify that the person completing the redircet flow
+                 * Gocardless uses this to verify that the person completing the redirect flow
                  * is the same person who initiated it.
                  */
 
@@ -203,15 +205,17 @@ class GoCardless extends PaymentBase
 
             } else {
 
+
                 if (count($this->aMandates) === 1) {
 
                     $sMandateId = $this->aMandates[0]->mandate_id;
 
-                } elseif (!empty($aData['mandate_id'])) {
+                } elseif (!empty($oData->mandate_id)) {
 
                     foreach ($this->aMandates as $oMandate) {
-                        if ($oMandate->mandate_id == $aData['mandate_id']) {
-                            $sMandateId = $aData['mandate_id'];
+                        if ($oMandate->id == $oData->mandate_id) {
+                            $sMandateId = $oMandate->mandate_id;
+                            break;
                         }
                     }
                 }
@@ -221,7 +225,15 @@ class GoCardless extends PaymentBase
                 }
 
                 //  Create a payment against the mandate
-                $sTxnId = $this->createPayment($oClient, $sMandateId, $iAmount, $sCurrency);
+                $sTxnId = $this->createPayment(
+                    $oClient,
+                    $sMandateId,
+                    $sDescription,
+                    $iAmount,
+                    $sCurrency,
+                    $oInvoice,
+                    $oCustomData
+                );
 
                 if (!empty($sTxnId)) {
 
@@ -333,7 +345,7 @@ class GoCardless extends PaymentBase
             } elseif (empty($sSessionToken)) {
 
                 $oCompleteResponse->setStatusFailed(
-                    'The complete request was missing the sessino token',
+                    'The complete request was missing the session token',
                     0,
                     'The request failed to complete, data was missing.'
                 );
@@ -371,8 +383,11 @@ class GoCardless extends PaymentBase
                     $sTxnId = $this->createPayment(
                         $oClient,
                         $sMandateId,
+                        $oPayment->description,
                         $oPayment->amount->base,
-                        $oPayment->currency
+                        $oPayment->currency,
+                        $oInvoice,
+                        $oPayment->custom_data
                     );
 
                     if (!empty($sTxnId)) {
@@ -444,19 +459,49 @@ class GoCardless extends PaymentBase
 
     /**
      * Creates a payment against a mandate
-     * @param  \GoCardlessPro\Client $oClient    The GoCardless client
-     * @param  string                $sMandateId The mandate ID
-     * @param  integer               $iAmount    The amount of the payment
-     * @param  string                $sCurrency  The currency in which to take payment
+     * @param  \GoCardlessPro\Client $oClient     The GoCardless client
+     * @param  string                $sMandateId  The mandate ID
+     * @param  integer               $iAmount     The amount of the payment
+     * @param  string                $sCurrency   The currency in which to take payment
+     * @param  \stdClass             $oInvoice    The invoice object
+     * @param  \stdClass             $oCustomData The payment'scustom data object
      * @return string
      */
-    protected function createPayment($oClient, $sMandateId, $iAmount, $sCurrency)
+    protected function createPayment($oClient, $sMandateId, $sDescription, $iAmount, $sCurrency, $oInvoice, $oCustomData)
     {
+        //  Store any custom meta data; GC allows up to 3 key value pairs with key
+        //  names up to 50 characters and values up to 500 characters.
+
+        //  In practice only one custom key can be defined
+        $aMetaData = array(
+            'invoiceId'  => $oInvoice->id,
+            'invoiceRef' => $oInvoice->ref
+        );
+
+        if (!empty($oCustomData->metadata)) {
+            $aMetaData = array_merge($aMetaData, (array) $oCustomData->metadata);
+        }
+
+        $aCleanMetaData = array();
+        $iCounter       = 0;
+
+        foreach ($aMetaData as $sKey => $mValue) {
+
+            if ($iCounter === 3) {
+                break;
+            }
+
+            $aCleanMetaData[substr($sKey, 0, 50)] = substr((string) $mValue, 0, 500);
+            $iCounter++;
+        }
+
         $oGCResponse = $oClient->payments()->create(
             array(
                 'params' => array(
-                    'amount'   => $iAmount,
-                    'currency' => $sCurrency,
+                    'description' => $sDescription,
+                    'amount'      => $iAmount,
+                    'currency'    => $sCurrency,
+                    'metadata'    => $aCleanMetaData,
                     'links' => array(
                         'mandate' => $sMandateId
                     )

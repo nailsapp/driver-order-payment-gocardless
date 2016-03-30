@@ -128,8 +128,8 @@ class GoCardless extends PaymentBase
         $sSuccessUrl,
         $sFailUrl,
         $sContinueUrl
-    )
-    {
+    ) {
+
         $oChargeResponse = Factory::factory('ChargeResponse', 'nailsapp/module-invoice');
 
         try {
@@ -240,6 +240,7 @@ class GoCardless extends PaymentBase
                     //  Set the response as processing, GoCardless will let us know when the payment is complete
                     $oChargeResponse->setStatusProcessing();
                     $oChargeResponse->setTxnId($sTxnId);
+                    $oChargeResponse->setFee($this->calculateFee($iAmount));
 
                 } else {
 
@@ -395,6 +396,7 @@ class GoCardless extends PaymentBase
                         //  Set the response as processing, GoCardless will let us know when the payment is complete
                         $oCompleteResponse->setStatusProcessing();
                         $oCompleteResponse->setTxnId($sTxnId);
+                        $oCompleteResponse->setFee($this->calculateFee($iAmount));
 
                     } else {
 
@@ -467,8 +469,16 @@ class GoCardless extends PaymentBase
      * @param  \stdClass             $oCustomData The payment'scustom data object
      * @return string
      */
-    protected function createPayment($oClient, $sMandateId, $sDescription, $iAmount, $sCurrency, $oInvoice, $oCustomData)
-    {
+    protected function createPayment(
+        $oClient,
+        $sMandateId,
+        $sDescription,
+        $iAmount,
+        $sCurrency,
+        $oInvoice,
+        $oCustomData
+    ) {
+
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
         //  names up to 50 characters and values up to 500 characters.
 
@@ -516,5 +526,52 @@ class GoCardless extends PaymentBase
         }
 
         return $sTxnId;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Calculate the fee which will be charged by GoCardless
+     * @param  integer $iAmount The amount of the transaction
+     * @return integer
+     */
+    protected function calculateFee($iAmount)
+    {
+        /**
+         * As of 17/03/2015 there is no API method or proeprty describing the fee which GoCardless will charge
+         * However, their charging mechanic is simple: 1% of the total transaction (rounded up to nearest penny)
+         * and capped at £2.
+         *
+         * Until such an API method exists, we'll calculate it outselves - it should be accurate. Famous last words...
+         */
+
+        $iFee = intval(ceil($iAmount * 0.01));
+        $iFee = $iFee > 200 ? 200 : $iFee;
+        return $iFee;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Issue a refund for a payment
+     * @param  string    $sTxnId       The transaction's ID
+     * @param  integer   $iAmount      The amount to refund
+     * @param  string    $sCurrency    The currency in which to refund
+     * @param  \stdClass $oCustomData  The custom data object
+     * @param  string    $sReason      The refund's reason
+     * @param  \stdClass $oPayment     The payment object
+     * @param  \stdClass $oInvoice     The invoice object
+     * @return \Nails\Invoice\Model\RefundResponse
+     */
+    public function refund(
+        $sTxnId,
+        $iAmount,
+        $sCurrency,
+        $oCustomData,
+        $sReason,
+        $oPayment,
+        $oInvoice
+    ) {
+        throw new Exception('Refunds via GoCardless are not yet available.', 1);
     }
 }

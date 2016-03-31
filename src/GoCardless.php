@@ -134,27 +134,7 @@ class GoCardless extends PaymentBase
 
         try {
 
-            if (Environment::is('PRODUCTION')) {
-
-                $sAccessToken = $this->getSetting('sAccessTokenLive');
-                $sEnvironment = \GoCardlessPro\Environment::LIVE;
-
-            } else {
-
-                $sAccessToken = $this->getSetting('sAccessTokenSandbox');
-                $sEnvironment = \GoCardlessPro\Environment::SANDBOX;
-            }
-
-            if (empty($sAccessToken)) {
-                throw new DriverException('Missing GoCardless Access Token.', 1);
-            }
-
-            $oClient = new \GoCardlessPro\Client(
-                array(
-                    'access_token' => $sAccessToken,
-                    'environment'  => $sEnvironment
-                )
-            );
+            $oClient = $this->getClient();
 
             /**
              * What we do here depends on a number of things:
@@ -306,27 +286,7 @@ class GoCardless extends PaymentBase
 
         try {
 
-            if (Environment::is('PRODUCTION')) {
-
-                $sAccessToken = $this->getSetting('sAccessTokenLive');
-                $sEnvironment = \GoCardlessPro\Environment::LIVE;
-
-            } else {
-
-                $sAccessToken = $this->getSetting('sAccessTokenSandbox');
-                $sEnvironment = \GoCardlessPro\Environment::SANDBOX;
-            }
-
-            if (empty($sAccessToken)) {
-                throw new DriverException('Missing GoCardless Access Token.', 1);
-            }
-
-            $oClient = new \GoCardlessPro\Client(
-                array(
-                    'access_token' => $sAccessToken,
-                    'environment'  => $sEnvironment
-                )
-            );
+            $oClient = $this->getClient();
 
             //  Retrieve data required for the completion
             $sRedirectFlowId = !empty($aGetVars['redirect_flow_id']) ? $aGetVars['redirect_flow_id'] : null;
@@ -479,6 +439,73 @@ class GoCardless extends PaymentBase
         $oCustomData
     ) {
 
+        $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
+        $oGCResponse = $oClient->payments()->create(
+            array(
+                'params' => array(
+                    'description' => $sDescription,
+                    'amount'      => $iAmount,
+                    'currency'    => $sCurrency,
+                    'metadata'    => $aMetaData,
+                    'links' => array(
+                        'mandate' => $sMandateId
+                    )
+                )
+            )
+        );
+
+        $sTxnId = null;
+
+        if ($oGCResponse->api_response->status_code === 201) {
+            $sTxnId = $oGCResponse->api_response->body->payments->id;
+        }
+
+        return $sTxnId;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Get the GoCardless Client
+     * @return \GocardlessPro\Client
+     */
+    protected function getClient()
+    {
+        if (Environment::is('PRODUCTION')) {
+
+            $sAccessToken = $this->getSetting('sAccessTokenLive');
+            $sEnvironment = \GoCardlessPro\Environment::LIVE;
+
+        } else {
+
+            $sAccessToken = $this->getSetting('sAccessTokenSandbox');
+            $sEnvironment = \GoCardlessPro\Environment::SANDBOX;
+        }
+
+        if (empty($sAccessToken)) {
+            throw new DriverException('Missing GoCardless Access Token.', 1);
+        }
+
+        $oClient = new \GoCardlessPro\Client(
+            array(
+                'access_token' => $sAccessToken,
+                'environment'  => $sEnvironment
+            )
+        );
+
+        return $oClient;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Extract the meta data from the invoice and custom data objects
+     * @param  \stdClass $oInvoice    The invoice object
+     * @param  \stdClass $oCustomData The custom data object
+     * @return array
+     */
+    protected function extractMetaData($oInvoice, $oCustomData)
+    {
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
         //  names up to 50 characters and values up to 500 characters.
 
@@ -505,27 +532,7 @@ class GoCardless extends PaymentBase
             $iCounter++;
         }
 
-        $oGCResponse = $oClient->payments()->create(
-            array(
-                'params' => array(
-                    'description' => $sDescription,
-                    'amount'      => $iAmount,
-                    'currency'    => $sCurrency,
-                    'metadata'    => $aCleanMetaData,
-                    'links' => array(
-                        'mandate' => $sMandateId
-                    )
-                )
-            )
-        );
-
-        $sTxnId = null;
-
-        if ($oGCResponse->api_response->status_code === 201) {
-            $sTxnId = $oGCResponse->api_response->body->payments->id;
-        }
-
-        return $sTxnId;
+        return $aCleanMetaData;
     }
 
     // --------------------------------------------------------------------------
@@ -572,6 +579,88 @@ class GoCardless extends PaymentBase
         $oPayment,
         $oInvoice
     ) {
-        throw new Exception('Refunds via GoCardless are not yet available.', 1);
+
+        $oRefundResponse = Factory::factory('RefundResponse', 'nailsapp/module-invoice');
+
+        //  Bail out on GoCardless refunds until we have an actual need (and can test it properly)
+        $oRefundResponse->setStatusFailed(
+            'GoCardless refunds are not available right now.',
+            null,
+            'GoCardless refunds are not available right now.'
+        );
+        return $oRefundResponse;
+
+        //  In order to refund we need to know the value of all successfull refunds to date
+        //  plus we can only send up to 5 refunds total against a transaction
+        //  @todo
+
+        try {
+
+            $oClient     = $this->getClient();
+            $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
+            $oGCResponse = $oClient->refunds()->create(
+                array(
+                    'params' => array(
+                        'amount'                    => $iAmount,
+                        'metadata'                  => $aMetaData,
+                        'total_amount_confirmation' => $iAmount,
+                        'links' => array(
+                            'payment' => $sTxnId
+                        )
+                    )
+                )
+            );
+
+            dumpanddie($oGCResponse);
+
+            $sTxnId = null;
+
+            //  @todo - correct?
+            if ($oGCResponse->api_response->status_code === 201) {
+                $sTxnId = $oGCResponse->api_response->body->refunds->id;
+            }
+
+            $oRefundResponse->setStatusProcessing();
+            $oRefundResponse->setTxnId($sTxnId);
+            //  @todo will this calculation be correct for partial payments?
+            $oRefundResponse->setFee($this->calculateFee($iAmount));
+
+        } catch (\GoCardlessPro\Core\Exception\ApiConnectionException $e) {
+
+            //  Network error
+            $oRefundResponse->setStatusFailed(
+                $e->getMessage(),
+                $e->getCode(),
+                'There was a problem connecting to the gateway, you may wish to try again.'
+            );
+
+        } catch (\GoCardlessPro\Core\Exception\ApiException $e) {
+
+            //  API request failed / record couldn't be created.
+            $oRefundResponse->setStatusFailed(
+                $e->getMessage(),
+                $e->getCode(),
+                'The gateway rejected the request, you may wish to try again.'
+            );
+
+        } catch (\GoCardlessPro\Core\Exception\MalformedResponseException $e) {
+
+            //  Unexpected non-JSON response
+            $oRefundResponse->setStatusFailed(
+                $e->getMessage(),
+                $e->getCode(),
+                'The gateway returned a malformed response, you may wish to try again.'
+            );
+
+        } catch (\Exception $e) {
+
+            $oRefundResponse->setStatusFailed(
+                $e->getMessage(),
+                $e->getCode(),
+                'An error occurred while executing the request.'
+            );
+        }
+
+        return $oRefundResponse;
     }
 }

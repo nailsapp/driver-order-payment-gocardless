@@ -112,7 +112,7 @@ class GoCardless extends PaymentBase
      * @param  string    $sDescription The charge description
      * @param  \stdClass $oPayment     The payment object
      * @param  \stdClass $oInvoice     The invoice object
-     * @param  string    $sSuccessUrl  The URL to go to after successfull payment
+     * @param  string    $sSuccessUrl  The URL to go to after successful payment
      * @param  string    $sFailUrl     The URL to go to after failed payment
      * @param  string    $sContinueUrl The URL to go to after payment is completed
      * @return \Nails\Invoice\Model\ChargeResponse
@@ -138,16 +138,47 @@ class GoCardless extends PaymentBase
 
             /**
              * What we do here depends on a number of things:
-             * - If we have 0 mandates, then we're using a redirect flow
+             * - If a mandate_id is specified then use it
+             *   - If it is passed in as $oCustomData data then use it. It's coming from the developer.
+             *   - If it is passed in as $oData then it's coming from the user and needs to be checked
              * - If we have 1 mandate then we're using it
-             * - If we have > 1 mandate then we're using the one supplied by the user
+             * - If we have 0 mandates, then we're using a redirect flow
              */
+            $sMandateId = null;
+            $bRedirect  = false;
 
-            if (empty($this->aMandates)) {
+            if (!empty($oCustomData->mandate_id)) {
+
+                //  Supplied by dev, trust it
+                $sMandateId = $oCustomData->mandate_id;
+
+            } elseif ($oData->mandate_id) {
+
+                //  Supplied by user, validate they have the right to use it
+                foreach ($this->aMandates as $oMandate) {
+                    if ($oMandate->id == $oData->mandate_id) {
+                        $sMandateId = $oMandate->mandate_id;
+                        break;
+                    }
+                }
+
+            } elseif (count($this->aMandates) == 1) {
+
+                //  Nothing supplied, but 1 mandate detected, use it
+                $sMandateId = $this->aMandates[0]->mandate_id;
+
+            } else {
+
+                //  Redirect flow
+                $bRedirect = true;
+            }
+
+
+            if ($bRedirect) {
 
                 /**
                  * Generate a random session token
-                 * Gocardless uses this to verify that the person completing the redirect flow
+                 * GoCardless uses this to verify that the person completing the redirect flow
                  * is the same person who initiated it.
                  */
 
@@ -183,27 +214,9 @@ class GoCardless extends PaymentBase
                     );
                 }
 
+            } elseif (empty($sMandateId)) {
+                throw new DriverException('Missing Mandate ID.', 1);
             } else {
-
-
-                if (count($this->aMandates) === 1) {
-
-                    $sMandateId = $this->aMandates[0]->mandate_id;
-
-                } elseif (!empty($oData->mandate_id)) {
-
-                    foreach ($this->aMandates as $oMandate) {
-                        if ($oMandate->id == $oData->mandate_id) {
-                            $sMandateId = $oMandate->mandate_id;
-                            break;
-                        }
-                    }
-                }
-
-                if (empty($sMandateId)) {
-                    throw new DriverException('Missing Mandate ID.', 1);
-                }
-
                 //  Create a payment against the mandate
                 $sTxnId = $this->createPayment(
                     $oClient,
@@ -260,7 +273,6 @@ class GoCardless extends PaymentBase
             );
 
         } catch (\Exception $e) {
-
             $oChargeResponse->setStatusFailed(
                 $e->getMessage(),
                 $e->getCode(),
@@ -356,7 +368,7 @@ class GoCardless extends PaymentBase
                         //  Set the response as processing, GoCardless will let us know when the payment is complete
                         $oCompleteResponse->setStatusProcessing();
                         $oCompleteResponse->setTxnId($sTxnId);
-                        $oCompleteResponse->setFee($this->calculateFee($iAmount));
+                        $oCompleteResponse->setFee($this->calculateFee($oPayment->amount->base));
 
                     } else {
 
@@ -406,7 +418,6 @@ class GoCardless extends PaymentBase
             );
 
         } catch (\Exception $e) {
-
             $oCompleteResponse->setStatusFailed(
                 $e->getMessage(),
                 $e->getCode(),

@@ -190,7 +190,7 @@ class GoCardless extends PaymentBase
                 Factory::helper('string');
                 $oSession      = Factory::service('Session', 'nailsapp/module-auth');
                 $sSessionToken = random_string('alnum', 32);
-                $oSession->set_userdata(self::SESSION_TOKEN_KEY, $sSessionToken);
+                $oSession->setUserData(self::SESSION_TOKEN_KEY, $sSessionToken);
 
                 //  Create a new redirect flow
                 $oGCResponse = $oClient->redirectFlows()->create(
@@ -311,7 +311,7 @@ class GoCardless extends PaymentBase
             $oSession        = Factory::service('Session', 'nailsapp/module-auth');
             $sSessionToken   = $oSession->userdata(self::SESSION_TOKEN_KEY);
 
-            $oSession->unset_userdata(self::SESSION_TOKEN_KEY);
+            $oSession->unsetUserData(self::SESSION_TOKEN_KEY);
 
             if (empty($sRedirectFlowId)) {
 

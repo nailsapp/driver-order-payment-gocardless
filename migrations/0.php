@@ -12,7 +12,7 @@
  * @link
  */
 
-namespace Nails\Database\Migration\Nailsapp\DriverInvoiceGocardless;
+namespace Nails\Database\Migration\Nails\DriverInvoiceGocardless;
 
 use Nails\Common\Console\Migrate\Base;
 

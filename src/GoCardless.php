@@ -39,7 +39,7 @@ class GoCardless extends PaymentBase
         //  Get any mandates this user might have
         if (isLoggedIn()) {
 
-            $oUserMeta       = Factory::model('UserMeta', 'nailsapp/module-auth');
+            $oUserMeta       = Factory::model('UserMeta', 'nails/module-auth');
             $this->aMandates = $oUserMeta->getMany($this->sMandateTable, activeUser('id'));
 
         } else {
@@ -136,7 +136,7 @@ class GoCardless extends PaymentBase
         $sContinueUrl
     ) {
 
-        $oChargeResponse = Factory::factory('ChargeResponse', 'nailsapp/module-invoice');
+        $oChargeResponse = Factory::factory('ChargeResponse', 'nails/module-invoice');
 
         try {
 
@@ -188,7 +188,7 @@ class GoCardless extends PaymentBase
                  */
 
                 Factory::helper('string');
-                $oSession      = Factory::service('Session', 'nailsapp/module-auth');
+                $oSession      = Factory::service('Session', 'nails/module-auth');
                 $sSessionToken = random_string('alnum', 32);
                 $oSession->setUserData(self::SESSION_TOKEN_KEY, $sSessionToken);
 
@@ -300,7 +300,7 @@ class GoCardless extends PaymentBase
      */
     public function complete($oPayment, $oInvoice, $aGetVars)
     {
-        $oCompleteResponse = Factory::factory('CompleteResponse', 'nailsapp/module-invoice');
+        $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
 
         try {
 
@@ -308,7 +308,7 @@ class GoCardless extends PaymentBase
 
             //  Retrieve data required for the completion
             $sRedirectFlowId = getFromArray('redirect_flow_id', $aGetVars);
-            $oSession        = Factory::service('Session', 'nailsapp/module-auth');
+            $oSession        = Factory::service('Session', 'nails/module-auth');
             $sSessionToken   = $oSession->userdata(self::SESSION_TOKEN_KEY);
 
             $oSession->unsetUserData(self::SESSION_TOKEN_KEY);
@@ -344,7 +344,7 @@ class GoCardless extends PaymentBase
                 if ($oGCResponse->api_response->status_code === 200) {
 
                     //  Save the mandate against user meta
-                    $oUserMeta  = Factory::model('UserMeta', 'nailsapp/module-auth');
+                    $oUserMeta  = Factory::model('UserMeta', 'nails/module-auth');
                     $oNow       = Factory::factory('DateTime');
                     $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
 
@@ -607,7 +607,7 @@ class GoCardless extends PaymentBase
         $oInvoice
     ) {
 
-        $oRefundResponse = Factory::factory('RefundResponse', 'nailsapp/module-invoice');
+        $oRefundResponse = Factory::factory('RefundResponse', 'nails/module-invoice');
 
         //  Bail out on GoCardless refunds until we have an actual need (and can test it properly)
         $oRefundResponse->setStatusFailed(

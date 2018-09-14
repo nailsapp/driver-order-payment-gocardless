@@ -1,5 +1,5 @@
 {
-    "name": "nailsapp/driver-invoice-gocardless",
+    "name": "nails/driver-invoice-gocardless",
     "keywords": ["Nails", "Shed Collective", "CodeIgniter", "Invoice Module", "Payments", "Driver", "GoCardless"],
     "homepage": "http://nailsapp.co.uk/modules/invoice/driver/gocardless",
     "description": "This is the \"GoCardless\" driver for the Nails Invoice module.",
@@ -21,7 +21,7 @@
     "prefer-stable": true,
     "require":
     {
-        "nailsapp/module-invoice": "dev-develop",
+        "nails/module-invoice": "dev-develop",
         "gocardless/gocardless-pro": "^0.9.2"
     },
     "require-dev":
@@ -35,7 +35,7 @@
             "name": "GoCardless",
             "type": "driver",
             "subType": "payment",
-            "forModule": "nailsapp/module-invoice",
+            "forModule": "nails/module-invoice",
             "data": {
                 "namespace": "Nails\\Invoice\\Driver\\Payment\\",
                 "class": "GoCardless",
@@ -52,7 +52,7 @@
                         "info": "The logo of the provider, as seen by customers",
                         "default": null,
                         "type": "image",
-                        "bucket": "nailsapp-driver-invoice-gocardless"
+                        "bucket": "nails-driver-invoice-gocardless"
                     },
                     {
                         "legend": "Test API Keys",

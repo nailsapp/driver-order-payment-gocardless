@@ -309,7 +309,7 @@ class GoCardless extends PaymentBase
             //  Retrieve data required for the completion
             $sRedirectFlowId = getFromArray('redirect_flow_id', $aGetVars);
             $oSession        = Factory::service('Session', 'nails/module-auth');
-            $sSessionToken   = $oSession->userdata(self::SESSION_TOKEN_KEY);
+            $sSessionToken   = $oSession->getUserData(self::SESSION_TOKEN_KEY);
 
             $oSession->unsetUserData(self::SESSION_TOKEN_KEY);
 

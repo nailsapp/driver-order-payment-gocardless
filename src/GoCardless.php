@@ -492,7 +492,7 @@ class GoCardless extends PaymentBase
      */
     protected function getClient()
     {
-        if (Environment::is('PRODUCTION')) {
+        if (Environment::is(Environment::ENV_PROD)) {
 
             $sAccessToken = $this->getSetting('sAccessTokenLive');
             $sEnvironment = \GoCardlessPro\Environment::LIVE;

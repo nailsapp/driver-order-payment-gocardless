@@ -20,6 +20,7 @@ use Nails\Environment;
 use Nails\Factory;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
+use Nails\Invoice\Factory\ScaResponse;
 
 class GoCardless extends PaymentBase
 {
@@ -52,9 +53,12 @@ class GoCardless extends PaymentBase
 
     /**
      * Returns whether the driver is available to be used against the selected invoice
+     *
+     * @param \stdClass $oInvoice The invoice being charged
+     *
      * @return boolean
      */
-    public function isAvailable()
+    public function isAvailable($oInvoice)
     {
         // This driver can only be used with logged in users
         return isLoggedIn();
@@ -64,6 +68,7 @@ class GoCardless extends PaymentBase
 
     /**
      * Returns whether the driver uses a redirect payment flow or not.
+     *
      * @return boolean
      */
     public function isRedirect()
@@ -76,6 +81,7 @@ class GoCardless extends PaymentBase
     /**
      * Returns the payment fields the driver requires, 'CARD' for basic credit
      * card details.
+     *
      * @return mixed
      */
     public function getPaymentFields()
@@ -108,18 +114,30 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
+     * Returns any assets to load during checkout
+     *
+     * @return array
+     */
+    public function getCheckoutAssets(): array
+    {
+        return [];
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Initiate a payment
      *
-     * @param  integer   $iAmount      The payment amount
-     * @param  string    $sCurrency    The payment currency
-     * @param  \stdClass $oData        The driver data object
-     * @param  \stdClass $oCustomData  The custom data object
-     * @param  string    $sDescription The charge description
-     * @param  \stdClass $oPayment     The payment object
-     * @param  \stdClass $oInvoice     The invoice object
-     * @param  string    $sSuccessUrl  The URL to go to after successful payment
-     * @param  string    $sFailUrl     The URL to go to after failed payment
-     * @param  string    $sContinueUrl The URL to go to after payment is completed
+     * @param integer   $iAmount      The payment amount
+     * @param string    $sCurrency    The payment currency
+     * @param \stdClass $oData        The driver data object
+     * @param \stdClass $oCustomData  The custom data object
+     * @param string    $sDescription The charge description
+     * @param \stdClass $oPayment     The payment object
+     * @param \stdClass $oInvoice     The invoice object
+     * @param string    $sSuccessUrl  The URL to go to after successful payment
+     * @param string    $sFailUrl     The URL to go to after failed payment
+     * @param string    $sContinueUrl The URL to go to after payment is completed
      *
      * @return \Nails\Invoice\Model\ChargeResponse
      */
@@ -290,15 +308,32 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
+     * Handles any SCA requests
+     *
+     * @param ScaResponse $oScaResponse The SCA Response object
+     * @param array       $aData        Any saved SCA data
+     * @param string      $sSuccessUrl  The URL to redirect to after authorisation
+     *
+     * @return ScaResponse
+     */
+    public function sca(ScaResponse $oScaResponse, array $aData, string $sSuccessUrl): ScaResponse
+    {
+        //  @todo (Pablo - 2019-07-24) - Implement this method
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Complete the payment
      *
-     * @param  \stdClass $oPayment The Payment object
-     * @param  \stdClass $oInvoice The Invoice object
-     * @param  array     $aGetVars Any $_GET variables passed from the redirect flow
+     * @param \stdClass $oPayment  The Payment object
+     * @param \stdClass $oInvoice  The Invoice object
+     * @param array     $aGetVars  Any $_GET variables passed from the redirect flow
+     * @param array     $aPostVars Any $_POST variables passed from the redirect flow
      *
      * @return \Nails\Invoice\Model\CompleteResponse
      */
-    public function complete($oPayment, $oInvoice, $aGetVars)
+    public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars)
     {
         $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
 
@@ -439,13 +474,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a payment against a mandate
      *
-     * @param  \GoCardlessPro\Client $oClient      The GoCardless client
-     * @param  string                $sMandateId   The mandate ID
-     * @param  string                $sDescription The payment\'s description
-     * @param  integer               $iAmount      The amount of the payment
-     * @param  string                $sCurrency    The currency in which to take payment
-     * @param  \stdClass             $oInvoice     The invoice object
-     * @param  \stdClass             $oCustomData  The payment'scustom data object
+     * @param \GoCardlessPro\Client $oClient      The GoCardless client
+     * @param string                $sMandateId   The mandate ID
+     * @param string                $sDescription The payment\'s description
+     * @param integer               $iAmount      The amount of the payment
+     * @param string                $sCurrency    The currency in which to take payment
+     * @param \stdClass             $oInvoice     The invoice object
+     * @param \stdClass             $oCustomData  The payment'scustom data object
      *
      * @return string
      */
@@ -487,6 +522,7 @@ class GoCardless extends PaymentBase
 
     /**
      * Get the GoCardless Client
+     *
      * @return \GoCardlessPro\Client
      * @throws DriverException
      */
@@ -522,8 +558,8 @@ class GoCardless extends PaymentBase
     /**
      * Extract the meta data from the invoice and custom data objects
      *
-     * @param  \stdClass $oInvoice    The invoice object
-     * @param  \stdClass $oCustomData The custom data object
+     * @param \stdClass $oInvoice    The invoice object
+     * @param \stdClass $oCustomData The custom data object
      *
      * @return array
      */
@@ -563,7 +599,7 @@ class GoCardless extends PaymentBase
     /**
      * Calculate the fee which will be charged by GoCardless
      *
-     * @param  integer $iAmount The amount of the transaction
+     * @param integer $iAmount The amount of the transaction
      *
      * @return integer
      */
@@ -587,13 +623,13 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param  string    $sTxnId      The transaction's ID
-     * @param  integer   $iAmount     The amount to refund
-     * @param  string    $sCurrency   The currency in which to refund
-     * @param  \stdClass $oCustomData The custom data object
-     * @param  string    $sReason     The refund's reason
-     * @param  \stdClass $oPayment    The payment object
-     * @param  \stdClass $oInvoice    The invoice object
+     * @param string    $sTxnId      The transaction's ID
+     * @param integer   $iAmount     The amount to refund
+     * @param string    $sCurrency   The currency in which to refund
+     * @param \stdClass $oCustomData The custom data object
+     * @param string    $sReason     The refund's reason
+     * @param \stdClass $oPayment    The payment object
+     * @param \stdClass $oInvoice    The invoice object
      *
      * @return \Nails\Invoice\Model\RefundResponse
      */

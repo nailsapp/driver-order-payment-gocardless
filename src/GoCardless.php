@@ -12,15 +12,23 @@
 
 namespace Nails\Invoice\Driver\Payment;
 
+use DateTime;
+use GoCardlessPro;
 use GoCardlessPro\Client;
 use GoCardlessPro\Core\Exception\ApiConnectionException;
 use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
+use Nails\Auth\Service\Session;
+use Nails\Auth\Service\User\Meta;
 use Nails\Environment;
 use Nails\Factory;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
+use Nails\Invoice\Factory\ChargeResponse;
+use Nails\Invoice\Factory\CompleteResponse;
+use Nails\Invoice\Factory\RefundResponse;
 use Nails\Invoice\Factory\ScaResponse;
+use stdClass;
 
 class GoCardless extends PaymentBase
 {
@@ -40,7 +48,8 @@ class GoCardless extends PaymentBase
         //  Get any mandates this user might have
         if (isLoggedIn()) {
 
-            $oUserMeta       = Factory::model('UserMeta', 'nails/module-auth');
+            /** @var Meta $oUserMeta */
+            $oUserMeta       = Factory::service('UserMeta', 'nails/module-auth');
             $this->aMandates = $oUserMeta->getMany($this->sMandateTable, activeUser('id'));
 
         } else {
@@ -54,7 +63,7 @@ class GoCardless extends PaymentBase
     /**
      * Returns whether the driver is available to be used against the selected invoice
      *
-     * @param \stdClass $oInvoice The invoice being charged
+     * @param stdClass $oInvoice The invoice being charged
      *
      * @return boolean
      */
@@ -128,18 +137,18 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param integer   $iAmount      The payment amount
-     * @param string    $sCurrency    The payment currency
-     * @param \stdClass $oData        The driver data object
-     * @param \stdClass $oCustomData  The custom data object
-     * @param string    $sDescription The charge description
-     * @param \stdClass $oPayment     The payment object
-     * @param \stdClass $oInvoice     The invoice object
-     * @param string    $sSuccessUrl  The URL to go to after successful payment
-     * @param string    $sFailUrl     The URL to go to after failed payment
-     * @param string    $sContinueUrl The URL to go to after payment is completed
+     * @param integer  $iAmount      The payment amount
+     * @param string   $sCurrency    The payment currency
+     * @param stdClass $oData        The driver data object
+     * @param stdClass $oCustomData  The custom data object
+     * @param string   $sDescription The charge description
+     * @param stdClass $oPayment     The payment object
+     * @param stdClass $oInvoice     The invoice object
+     * @param string   $sSuccessUrl  The URL to go to after successful payment
+     * @param string   $sFailUrl     The URL to go to after failed payment
+     * @param string   $sContinueUrl The URL to go to after payment is completed
      *
-     * @return \Nails\Invoice\Model\ChargeResponse
+     * @return ChargeResponse
      */
     public function charge(
         $iAmount,
@@ -154,6 +163,7 @@ class GoCardless extends PaymentBase
         $sContinueUrl
     ) {
 
+        /** @var ChargeResponse $oChargeResponse */
         $oChargeResponse = Factory::factory('ChargeResponse', 'nails/module-invoice');
 
         try {
@@ -206,6 +216,7 @@ class GoCardless extends PaymentBase
                  */
 
                 Factory::helper('string');
+                /** @var Session $oSession */
                 $oSession      = Factory::service('Session', 'nails/module-auth');
                 $sSessionToken = random_string('alnum', 32);
                 $oSession->setUserData(self::SESSION_TOKEN_KEY, $sSessionToken);
@@ -326,15 +337,16 @@ class GoCardless extends PaymentBase
     /**
      * Complete the payment
      *
-     * @param \stdClass $oPayment  The Payment object
-     * @param \stdClass $oInvoice  The Invoice object
-     * @param array     $aGetVars  Any $_GET variables passed from the redirect flow
-     * @param array     $aPostVars Any $_POST variables passed from the redirect flow
+     * @param stdClass $oPayment  The Payment object
+     * @param stdClass $oInvoice  The Invoice object
+     * @param array    $aGetVars  Any $_GET variables passed from the redirect flow
+     * @param array    $aPostVars Any $_POST variables passed from the redirect flow
      *
-     * @return \Nails\Invoice\Model\CompleteResponse
+     * @return CompleteResponse
      */
     public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars)
     {
+        /** @var CompleteResponse $oCompleteResponse */
         $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
 
         try {
@@ -343,8 +355,9 @@ class GoCardless extends PaymentBase
 
             //  Retrieve data required for the completion
             $sRedirectFlowId = getFromArray('redirect_flow_id', $aGetVars);
-            $oSession        = Factory::service('Session', 'nails/module-auth');
-            $sSessionToken   = $oSession->getUserData(self::SESSION_TOKEN_KEY);
+            /** @var Session $oSession */
+            $oSession      = Factory::service('Session', 'nails/module-auth');
+            $sSessionToken = $oSession->getUserData(self::SESSION_TOKEN_KEY);
 
             $oSession->unsetUserData(self::SESSION_TOKEN_KEY);
 
@@ -379,7 +392,9 @@ class GoCardless extends PaymentBase
                 if ($oGCResponse->api_response->status_code === 200) {
 
                     //  Save the mandate against user meta
-                    $oUserMeta  = Factory::model('UserMeta', 'nails/module-auth');
+                    /** @var Meta $oUserMeta */
+                    $oUserMeta = Factory::service('UserMeta', 'nails/module-auth');
+                    /** @var DateTime $oNow */
                     $oNow       = Factory::factory('DateTime');
                     $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
 
@@ -474,13 +489,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a payment against a mandate
      *
-     * @param \GoCardlessPro\Client $oClient      The GoCardless client
-     * @param string                $sMandateId   The mandate ID
-     * @param string                $sDescription The payment\'s description
-     * @param integer               $iAmount      The amount of the payment
-     * @param string                $sCurrency    The currency in which to take payment
-     * @param \stdClass             $oInvoice     The invoice object
-     * @param \stdClass             $oCustomData  The payment'scustom data object
+     * @param Client   $oClient      The GoCardless client
+     * @param string   $sMandateId   The mandate ID
+     * @param string   $sDescription The payment\'s description
+     * @param integer  $iAmount      The amount of the payment
+     * @param string   $sCurrency    The currency in which to take payment
+     * @param stdClass $oInvoice     The invoice object
+     * @param stdClass $oCustomData  The payment'scustom data object
      *
      * @return string
      */
@@ -523,7 +538,7 @@ class GoCardless extends PaymentBase
     /**
      * Get the GoCardless Client
      *
-     * @return \GoCardlessPro\Client
+     * @return Client
      * @throws DriverException
      */
     protected function getClient()
@@ -531,24 +546,22 @@ class GoCardless extends PaymentBase
         if (Environment::is(Environment::ENV_PROD)) {
 
             $sAccessToken = $this->getSetting('sAccessTokenLive');
-            $sEnvironment = \GoCardlessPro\Environment::LIVE;
+            $sEnvironment = GoCardlessPro\Environment::LIVE;
 
         } else {
 
             $sAccessToken = $this->getSetting('sAccessTokenSandbox');
-            $sEnvironment = \GoCardlessPro\Environment::SANDBOX;
+            $sEnvironment = GoCardlessPro\Environment::SANDBOX;
         }
 
         if (empty($sAccessToken)) {
             throw new DriverException('Missing GoCardless Access Token.', 1);
         }
 
-        $oClient = new Client(
-            [
-                'access_token' => $sAccessToken,
-                'environment'  => $sEnvironment,
-            ]
-        );
+        $oClient = new Client([
+            'access_token' => $sAccessToken,
+            'environment'  => $sEnvironment,
+        ]);
 
         return $oClient;
     }
@@ -558,8 +571,8 @@ class GoCardless extends PaymentBase
     /**
      * Extract the meta data from the invoice and custom data objects
      *
-     * @param \stdClass $oInvoice    The invoice object
-     * @param \stdClass $oCustomData The custom data object
+     * @param stdClass $oInvoice    The invoice object
+     * @param stdClass $oCustomData The custom data object
      *
      * @return array
      */
@@ -623,15 +636,15 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param string    $sTxnId      The transaction's ID
-     * @param integer   $iAmount     The amount to refund
-     * @param string    $sCurrency   The currency in which to refund
-     * @param \stdClass $oCustomData The custom data object
-     * @param string    $sReason     The refund's reason
-     * @param \stdClass $oPayment    The payment object
-     * @param \stdClass $oInvoice    The invoice object
+     * @param string   $sTxnId      The transaction's ID
+     * @param integer  $iAmount     The amount to refund
+     * @param string   $sCurrency   The currency in which to refund
+     * @param stdClass $oCustomData The custom data object
+     * @param string   $sReason     The refund's reason
+     * @param stdClass $oPayment    The payment object
+     * @param stdClass $oInvoice    The invoice object
      *
-     * @return \Nails\Invoice\Model\RefundResponse
+     * @return RefundResponse
      */
     public function refund(
         $sTxnId,
@@ -643,6 +656,7 @@ class GoCardless extends PaymentBase
         $oInvoice
     ) {
 
+        /** @var RefundResponse $oRefundResponse */
         $oRefundResponse = Factory::factory('RefundResponse', 'nails/module-invoice');
 
         //  Bail out on GoCardless refunds until we have an actual need (and can test it properly)

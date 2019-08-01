@@ -55,7 +55,7 @@
                         "bucket": "nails-driver-invoice-gocardless"
                     },
                     {
-                        "legend": "Test API Keys",
+                        "legend": "API Keys - Test",
                         "fields": [
                             {
                                 "key": "sAccessTokenSandbox",
@@ -66,7 +66,7 @@
                         ]
                     },
                     {
-                        "legend": "Live API Keys",
+                        "legend": "API Keys - Live",
                         "fields": [
                             {
                                 "key": "sAccessTokenLive",

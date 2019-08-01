@@ -30,6 +30,11 @@ use Nails\Invoice\Factory\RefundResponse;
 use Nails\Invoice\Factory\ScaResponse;
 use stdClass;
 
+/**
+ * Class GoCardless
+ *
+ * @package Nails\Invoice\Driver\Payment
+ */
 class GoCardless extends PaymentBase
 {
     protected $sMandateTable = NAILS_DB_PREFIX . 'user_meta_invoice_gocardless_mandate';
@@ -65,9 +70,9 @@ class GoCardless extends PaymentBase
      *
      * @param stdClass $oInvoice The invoice being charged
      *
-     * @return boolean
+     * @return bool
      */
-    public function isAvailable($oInvoice)
+    public function isAvailable($oInvoice): bool
     {
         // This driver can only be used with logged in users
         return isLoggedIn();
@@ -76,11 +81,25 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
+     * Returns the currencies which this driver supports, it will only be presented
+     * when attempting to pay an invoice in a supported currency
+     *
+     * @return string[]|null
+     */
+    public function getSupportedCurrencies(): ?array
+    {
+        //  @todo (Pablo - 2019-08-01) - Automate this
+        return ['AUD', 'CAD', 'DKK', 'EUR', 'GBP', 'NZD', 'SEK', 'USD'];
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Returns whether the driver uses a redirect payment flow or not.
      *
-     * @return boolean
+     * @return bool
      */
-    public function isRedirect()
+    public function isRedirect(): bool
     {
         return empty($this->aMandates);
     }
@@ -137,7 +156,7 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param integer  $iAmount      The payment amount
+     * @param int      $iAmount      The payment amount
      * @param string   $sCurrency    The payment currency
      * @param stdClass $oData        The driver data object
      * @param stdClass $oCustomData  The custom data object
@@ -161,7 +180,7 @@ class GoCardless extends PaymentBase
         $sSuccessUrl,
         $sFailUrl,
         $sContinueUrl
-    ) {
+    ): ChargeResponse {
 
         /** @var ChargeResponse $oChargeResponse */
         $oChargeResponse = Factory::factory('ChargeResponse', 'nails/module-invoice');
@@ -344,7 +363,7 @@ class GoCardless extends PaymentBase
      *
      * @return CompleteResponse
      */
-    public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars)
+    public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars): CompleteResponse
     {
         /** @var CompleteResponse $oCompleteResponse */
         $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
@@ -492,7 +511,7 @@ class GoCardless extends PaymentBase
      * @param Client   $oClient      The GoCardless client
      * @param string   $sMandateId   The mandate ID
      * @param string   $sDescription The payment\'s description
-     * @param integer  $iAmount      The amount of the payment
+     * @param int      $iAmount      The amount of the payment
      * @param string   $sCurrency    The currency in which to take payment
      * @param stdClass $oInvoice     The invoice object
      * @param stdClass $oCustomData  The payment'scustom data object
@@ -507,7 +526,7 @@ class GoCardless extends PaymentBase
         $sCurrency,
         $oInvoice,
         $oCustomData
-    ) {
+    ): string {
 
         $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
         $oGCResponse = $oClient->payments()->create(
@@ -541,7 +560,7 @@ class GoCardless extends PaymentBase
      * @return Client
      * @throws DriverException
      */
-    protected function getClient()
+    protected function getClient(): Client
     {
         if (Environment::is(Environment::ENV_PROD)) {
 
@@ -576,7 +595,7 @@ class GoCardless extends PaymentBase
      *
      * @return array
      */
-    protected function extractMetaData($oInvoice, $oCustomData)
+    protected function extractMetaData($oInvoice, $oCustomData): array
     {
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
         //  names up to 50 characters and values up to 500 characters.
@@ -612,11 +631,11 @@ class GoCardless extends PaymentBase
     /**
      * Calculate the fee which will be charged by GoCardless
      *
-     * @param integer $iAmount The amount of the transaction
+     * @param int $iAmount The amount of the transaction
      *
-     * @return integer
+     * @return int
      */
-    protected function calculateFee($iAmount)
+    protected function calculateFee($iAmount): int
     {
         /**
          * As of 17/03/2015 there is no API method or property describing the fee which GoCardless will charge
@@ -637,7 +656,7 @@ class GoCardless extends PaymentBase
      * Issue a refund for a payment
      *
      * @param string   $sTxnId      The transaction's ID
-     * @param integer  $iAmount     The amount to refund
+     * @param int      $iAmount     The amount to refund
      * @param string   $sCurrency   The currency in which to refund
      * @param stdClass $oCustomData The custom data object
      * @param string   $sReason     The refund's reason
@@ -654,7 +673,7 @@ class GoCardless extends PaymentBase
         $sReason,
         $oPayment,
         $oInvoice
-    ) {
+    ): RefundResponse {
 
         /** @var RefundResponse $oRefundResponse */
         $oRefundResponse = Factory::factory('RefundResponse', 'nails/module-invoice');

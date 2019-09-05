@@ -20,6 +20,7 @@ use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
 use Nails\Auth\Service\Session;
 use Nails\Auth\Service\User\Meta;
+use Nails\Common\Exception\NailsException;
 use Nails\Environment;
 use Nails\Factory;
 use Nails\Invoice\Driver\PaymentBase;
@@ -758,5 +759,24 @@ class GoCardless extends PaymentBase
         }
 
         return $oRefundResponse;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Creates a new payment source, returns a semi-populated source resource
+     *
+     * @param \Nails\Invoice\Resource\Source $oResource The Resouce object to update
+     * @param array                          $aData     Data passed from the caller
+     *
+     * @throws DriverException
+     */
+    public function createSource(
+        \Nails\Invoice\Resource\Source &$oResource,
+        array $aData
+    ): void
+    {
+        //  @todo (Pablo - 2019-09-05) - implement this
+        throw new NailsException('Method not implemented');
     }
 }

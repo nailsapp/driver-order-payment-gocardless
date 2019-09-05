@@ -165,8 +165,7 @@ class GoCardless extends PaymentBase
      * @param stdClass $oPayment     The payment object
      * @param stdClass $oInvoice     The invoice object
      * @param string   $sSuccessUrl  The URL to go to after successful payment
-     * @param string   $sFailUrl     The URL to go to after failed payment
-     * @param string   $sContinueUrl The URL to go to after payment is completed
+     * @param string   $sErrorUrl    The URL to go to after failed payment
      *
      * @return ChargeResponse
      */
@@ -179,8 +178,7 @@ class GoCardless extends PaymentBase
         $oPayment,
         $oInvoice,
         $sSuccessUrl,
-        $sFailUrl,
-        $sContinueUrl
+        $sErrorUrl
     ): ChargeResponse {
 
         /** @var ChargeResponse $oChargeResponse */
@@ -774,8 +772,7 @@ class GoCardless extends PaymentBase
     public function createSource(
         \Nails\Invoice\Resource\Source &$oResource,
         array $aData
-    ): void
-    {
+    ): void {
         //  @todo (Pablo - 2019-09-05) - implement this
         throw new NailsException('Method not implemented');
     }

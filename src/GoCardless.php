@@ -75,8 +75,7 @@ class GoCardless extends PaymentBase
      */
     public function isAvailable($oInvoice): bool
     {
-        // This driver can only be used with logged in users
-        return isLoggedIn();
+        return true;
     }
 
     // --------------------------------------------------------------------------

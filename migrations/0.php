@@ -36,5 +36,8 @@ class Migration0 extends Base
                 CONSTRAINT `{{NAILS_DB_PREFIX}}user_meta_invoice_gocardless_mandate_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `{{NAILS_DB_PREFIX}}user` (`id`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
         ");
+
+        //  @todo (Pablo - 2019-09-05) - create a new migration to remove this table (the only known project relying on it will/has handled migrating it)
+        //  @todo (Pablo - 2019-09-05) - Sorry if this screws anyone else over :( pre-release, innit.
     }
 }

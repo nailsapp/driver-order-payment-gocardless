@@ -20,6 +20,7 @@ use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
 use Nails\Auth\Service\Session;
 use Nails\Auth\Service\User\Meta;
+use Nails\Common\Exception\FactoryException;
 use Nails\Common\Exception\NailsException;
 use Nails\Environment;
 use Nails\Factory;
@@ -38,8 +39,19 @@ use stdClass;
  */
 class GoCardless extends PaymentBase
 {
+    /**
+     * The mandate table
+     *
+     * @var string
+     */
     protected $sMandateTable = NAILS_DB_PREFIX . 'user_meta_invoice_gocardless_mandate';
-    protected $aMandates;
+
+    /**
+     * The user's mandates
+     *
+     * @var array
+     */
+    protected $aMandates = [];
 
     // --------------------------------------------------------------------------
 
@@ -47,6 +59,11 @@ class GoCardless extends PaymentBase
 
     // --------------------------------------------------------------------------
 
+    /**
+     * GoCardless constructor.
+     *
+     * @throws FactoryException
+     */
     public function __construct()
     {
         parent::__construct();
@@ -57,10 +74,6 @@ class GoCardless extends PaymentBase
             /** @var Meta $oUserMeta */
             $oUserMeta       = Factory::service('UserMeta', 'nails/module-auth');
             $this->aMandates = $oUserMeta->getMany($this->sMandateTable, activeUser('id'));
-
-        } else {
-
-            $this->aMandates = [];
         }
     }
 

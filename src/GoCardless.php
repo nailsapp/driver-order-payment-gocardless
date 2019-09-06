@@ -24,6 +24,7 @@ use Nails\Common\Exception\FactoryException;
 use Nails\Common\Exception\NailsException;
 use Nails\Environment;
 use Nails\Factory;
+use Nails\Invoice\Constants;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
 use Nails\Invoice\Factory\ChargeResponse;
@@ -194,7 +195,7 @@ class GoCardless extends PaymentBase
     ): ChargeResponse {
 
         /** @var ChargeResponse $oChargeResponse */
-        $oChargeResponse = Factory::factory('ChargeResponse', 'nails/module-invoice');
+        $oChargeResponse = Factory::factory('ChargeResponse', Constants::MODULE_SLUG);
 
         try {
 
@@ -377,7 +378,7 @@ class GoCardless extends PaymentBase
     public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars): CompleteResponse
     {
         /** @var CompleteResponse $oCompleteResponse */
-        $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
+        $oCompleteResponse = Factory::factory('CompleteResponse', Constants::MODULE_SLUG);
 
         try {
 
@@ -687,7 +688,7 @@ class GoCardless extends PaymentBase
     ): RefundResponse {
 
         /** @var RefundResponse $oRefundResponse */
-        $oRefundResponse = Factory::factory('RefundResponse', 'nails/module-invoice');
+        $oRefundResponse = Factory::factory('RefundResponse', Constants::MODULE_SLUG);
 
         //  Bail out on GoCardless refunds until we have an actual need (and can test it properly)
         $oRefundResponse->setStatusFailed(

@@ -170,28 +170,30 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param int      $iAmount      The payment amount
-     * @param string   $sCurrency    The payment currency
-     * @param stdClass $oData        The driver data object
-     * @param stdClass $oCustomData  The custom data object
-     * @param string   $sDescription The charge description
-     * @param stdClass $oPayment     The payment object
-     * @param stdClass $oInvoice     The invoice object
-     * @param string   $sSuccessUrl  The URL to go to after successful payment
-     * @param string   $sErrorUrl    The URL to go to after failed payment
+     * @param int                  $iAmount      The payment amount
+     * @param string               $sCurrency    The payment currency
+     * @param stdClass             $oData        An array of driver data
+     * @param stdClass             $oCustomData  The custom data object
+     * @param string               $sDescription The charge description
+     * @param Resource\Payment     $oPayment     The payment object
+     * @param Resource\Invoice     $oInvoice     The invoice object
+     * @param string               $sSuccessUrl  The URL to go to after successful payment
+     * @param string               $sErrorUrl    The URL to go to after failed payment
+     * @param Resource\Source|null $oSource      The saved payment source to use
      *
      * @return ChargeResponse
      */
     public function charge(
-        $iAmount,
-        $sCurrency,
-        $oData,
-        $oCustomData,
-        $sDescription,
-        $oPayment,
-        $oInvoice,
-        $sSuccessUrl,
-        $sErrorUrl
+        int $iAmount,
+        string $sCurrency,
+        stdClass $oData,
+        stdClass $oCustomData,
+        string $sDescription,
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice,
+        string $sSuccessUrl,
+        string $sErrorUrl,
+        Resource\Source $oSource = null
     ): ChargeResponse {
 
         /** @var ChargeResponse $oChargeResponse */

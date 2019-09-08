@@ -32,9 +32,7 @@ use Nails\Invoice\Factory\ChargeResponse;
 use Nails\Invoice\Factory\CompleteResponse;
 use Nails\Invoice\Factory\RefundResponse;
 use Nails\Invoice\Factory\ScaResponse;
-use Nails\Invoice\Resource\Invoice;
-use Nails\Invoice\Resource\Payment;
-use Nails\Invoice\Resource\Source;
+use Nails\Invoice\Resource;
 use stdClass;
 
 /**
@@ -87,11 +85,11 @@ class GoCardless extends PaymentBase
     /**
      * Returns whether the driver is available to be used against the selected invoice
      *
-     * @param Invoice $oInvoice The invoice being charged
+     * @param Resource\Invoice $oInvoice The invoice being charged
      *
      * @return bool
      */
-    public function isAvailable(Invoice $oInvoice): bool
+    public function isAvailable(Resource\Invoice $oInvoice): bool
     {
         return true;
     }
@@ -179,8 +177,8 @@ class GoCardless extends PaymentBase
      * @param stdClass             $oData        An array of driver data
      * @param stdClass             $oCustomData  The custom data object
      * @param string               $sDescription The charge description
-     * @param Payment              $oPayment     The payment object
-     * @param Invoice              $oInvoice     The invoice object
+     * @param Resource\Payment     $oPayment     The payment object
+     * @param Resource\Invoice     $oInvoice     The invoice object
      * @param string               $sSuccessUrl  The URL to go to after successful payment
      * @param string               $sErrorUrl    The URL to go to after failed payment
      * @param Resource\Source|null $oSource      The saved payment source to use
@@ -193,11 +191,11 @@ class GoCardless extends PaymentBase
         stdClass $oData,
         stdClass $oCustomData,
         string $sDescription,
-        Payment $oPayment,
-        Invoice $oInvoice,
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice,
         string $sSuccessUrl,
         string $sErrorUrl,
-        Source $oSource = null
+        Resource\Source $oSource = null
     ): ChargeResponse {
 
         /** @var ChargeResponse $oChargeResponse */
@@ -374,15 +372,19 @@ class GoCardless extends PaymentBase
     /**
      * Complete the payment
      *
-     * @param stdClass $oPayment  The Payment object
-     * @param stdClass $oInvoice  The Invoice object
-     * @param array    $aGetVars  Any $_GET variables passed from the redirect flow
-     * @param array    $aPostVars Any $_POST variables passed from the redirect flow
+     * @param Resource\Payment $oPayment  The Payment object
+     * @param Resource\Invoice $oInvoice  The Invoice object
+     * @param array            $aGetVars  Any $_GET variables passed from the redirect flow
+     * @param array            $aPostVars Any $_POST variables passed from the redirect flow
      *
      * @return CompleteResponse
      */
-    public function complete($oPayment, $oInvoice, $aGetVars, $aPostVars): CompleteResponse
-    {
+    public function complete(
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice,
+        $aGetVars,
+        $aPostVars
+    ): CompleteResponse {
         /** @var CompleteResponse $oCompleteResponse */
         $oCompleteResponse = Factory::factory('CompleteResponse', Constants::MODULE_SLUG);
 
@@ -526,13 +528,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a payment against a mandate
      *
-     * @param Client   $oClient      The GoCardless client
-     * @param string   $sMandateId   The mandate ID
-     * @param string   $sDescription The payment\'s description
-     * @param int      $iAmount      The amount of the payment
-     * @param Currency $oCurrency    The currency in which to take payment
-     * @param Invoice  $oInvoice     The invoice object
-     * @param stdClass $oCustomData  The payment'scustom data object
+     * @param Client           $oClient      The GoCardless client
+     * @param string           $sMandateId   The mandate ID
+     * @param string           $sDescription The payment\'s description
+     * @param int              $iAmount      The amount of the payment
+     * @param Currency         $oCurrency    The currency in which to take payment
+     * @param Resource\Invoice $oInvoice     The invoice object
+     * @param stdClass         $oCustomData  The payment'scustom data object
      *
      * @return string
      */
@@ -542,7 +544,7 @@ class GoCardless extends PaymentBase
         string $sDescription,
         int $iAmount,
         Currency $oCurrency,
-        Invoice $oInvoice,
+        Resource\Invoice $oInvoice,
         stdClass $oCustomData
     ): string {
 
@@ -608,13 +610,16 @@ class GoCardless extends PaymentBase
     /**
      * Extract the meta data from the invoice and custom data objects
      *
-     * @param Invoice  $oInvoice    The invoice object
-     * @param stdClass $oCustomData The custom data object
+     * @param Resource\Invoice $oInvoice    The invoice object
+     * @param stdClass         $oCustomData The custom data object
      *
      * @return array
      */
-    protected function extractMetaData(Invoice $oInvoice, stdClass $oCustomData): array
-    {
+    protected function extractMetaData(
+        Resource\Invoice $oInvoice,
+        stdClass $oCustomData
+    ): array {
+
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
         //  names up to 50 characters and values up to 500 characters.
 
@@ -673,24 +678,24 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param string   $sTxnId      The transaction's ID
-     * @param int      $iAmount     The amount to refund
-     * @param string   $sCurrency   The currency in which to refund
-     * @param stdClass $oCustomData The custom data object
-     * @param string   $sReason     The refund's reason
-     * @param stdClass $oPayment    The payment object
-     * @param stdClass $oInvoice    The invoice object
+     * @param string           $sTxnId      The transaction's ID
+     * @param int              $iAmount     The amount to refund
+     * @param Currency         $oCurrency   The currency in which to refund
+     * @param stdClass         $oCustomData The custom data object
+     * @param string           $sReason     The refund's reason
+     * @param Resource\Payment $oPayment    The payment object
+     * @param Resource\Invoice $oInvoice    The invoice object
      *
      * @return RefundResponse
      */
     public function refund(
-        $sTxnId,
-        $iAmount,
-        $sCurrency,
-        $oCustomData,
-        $sReason,
-        $oPayment,
-        $oInvoice
+        string $sTxnId,
+        int $iAmount,
+        Currency $oCurrency,
+        stdClass $oCustomData,
+        string $sReason,
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice
     ): RefundResponse {
 
         /** @var RefundResponse $oRefundResponse */
@@ -783,13 +788,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a new payment source, returns a semi-populated source resource
      *
-     * @param \Nails\Invoice\Resource\Source $oResource The Resouce object to update
-     * @param array                          $aData     Data passed from the caller
+     * @param Resource\Source $oResource The Resouce object to update
+     * @param array           $aData     Data passed from the caller
      *
      * @throws DriverException
      */
     public function createSource(
-        \Nails\Invoice\Resource\Source &$oResource,
+        Resource\Source &$oResource,
         array $aData
     ): void {
         //  @todo (Pablo - 2019-09-05) - implement this

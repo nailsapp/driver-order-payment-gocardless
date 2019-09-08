@@ -47,14 +47,6 @@
                         "default": "GoCardless"
                     },
                     {
-                        "key": "iLogoId",
-                        "label": "Logo",
-                        "info": "The logo of the provider, as seen by customers",
-                        "default": null,
-                        "type": "image",
-                        "bucket": "nails-driver-invoice-gocardless"
-                    },
-                    {
                         "legend": "API Keys - Test",
                         "fields": [
                             {

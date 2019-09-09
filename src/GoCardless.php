@@ -796,9 +796,11 @@ class GoCardless extends PaymentBase
                 ->mandates()
                 ->get($sMandateId);
 
-            $oBankAccount = $oClient
-                ->customerBankAccounts()
-                ->get($oMandate->links->customer_bank_account);
+            if (empty($oResource->label)) {
+                $oBankAccount = $oClient
+                    ->customerBankAccounts()
+                    ->get($oMandate->links->customer_bank_account);
+            }
 
         } catch (\Exception $e) {
             throw new DriverException(
@@ -808,8 +810,11 @@ class GoCardless extends PaymentBase
             );
         }
 
-        $oResource->label = 'Direct Debit – ' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending;
-        $oResource->data  = json_encode([
+        if (empty($oResource->label)) {
+            $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
+        }
+
+        $oResource->data = json_encode([
             'mandate_id' => $sMandateId,
         ]);
     }

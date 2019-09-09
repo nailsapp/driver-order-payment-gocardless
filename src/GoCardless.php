@@ -428,7 +428,6 @@ class GoCardless extends PaymentBase
                         'customer_id' => $oInvoice->customer->id,
                         'driver'      => $this->getSlug(),
                         'mandate_id'  => $sMandateId,
-                        'label'       => 'Direct Debit Mandate (Created ' . $oNow->format('jS F, Y') . ')',
                     ]);
 
                     //  Create a payment against the mandate
@@ -797,11 +796,20 @@ class GoCardless extends PaymentBase
                 ->mandates()
                 ->get($sMandateId);
 
+            $oBankAccount = $oClient
+                ->customerBankAccounts()
+                ->get($oMandate->links->customer_bank_account);
+
         } catch (\Exception $e) {
-            throw new DriverException('"' . $sMandateId . '" is not a valid mandate ID.', $e->getCode(), $e);
+            throw new DriverException(
+                '"' . $sMandateId . '" is not a valid mandate ID.',
+                $e->getCode(),
+                $e
+            );
         }
 
-        $oResource->data = json_encode([
+        $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
+        $oResource->data  = json_encode([
             'mandate_id' => $sMandateId,
         ]);
     }

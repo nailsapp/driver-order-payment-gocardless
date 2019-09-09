@@ -166,12 +166,17 @@ class GoCardless extends PaymentBase
                 );
             }
 
-            dd($oSource);
+            $aSourceData = json_decode($oSource->data, JSON_OBJECT_AS_ARRAY) ?? [];
+            $sMandateId  = getFromArray('mandate_id', $aSourceData);
+
+            if (empty($sMandateId)) {
+                throw new DriverException('Could not acertain the "mandate_id" from the Source object.');
+            }
 
             //  Create a payment against the mandate
             $sTxnId = $this->createPayment(
                 $oClient,
-                $oSource->data->mandate_id,
+                $sMandateId,
                 $sDescription,
                 $iAmount,
                 $oCurrency,

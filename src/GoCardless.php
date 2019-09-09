@@ -808,7 +808,7 @@ class GoCardless extends PaymentBase
             );
         }
 
-        $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
+        $oResource->label = 'Direct Debit – ' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending;
         $oResource->data  = json_encode([
             'mandate_id' => $sMandateId,
         ]);

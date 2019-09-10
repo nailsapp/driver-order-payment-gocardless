@@ -172,7 +172,7 @@ class GoCardless extends PaymentBase
             }
 
             //  Create a payment against the mandate
-            $sTxnId = $this->createPayment(
+            $sTransactionId = $this->createPayment(
                 $oClient,
                 $sMandateId,
                 $sDescription,
@@ -182,12 +182,12 @@ class GoCardless extends PaymentBase
                 $oPaymentData
             );
 
-            if (!empty($sTxnId)) {
+            if (!empty($sTransactionId)) {
 
                 //  Set the response as processing, GoCardless will let us know when the payment is complete
                 $oChargeResponse
                     ->setStatusProcessing()
-                    ->setTxnId($sTxnId)
+                    ->setTransactionId($sTransactionId)
                     ->setFee($this->calculateFee($iAmount));
 
             } else {
@@ -429,7 +429,7 @@ class GoCardless extends PaymentBase
                     ]);
 
                     //  Create a payment against the mandate
-                    $sTxnId = $this->createPayment(
+                    $sTransactionId = $this->createPayment(
                         $oClient,
                         $sMandateId,
                         $oPayment->description,
@@ -439,12 +439,12 @@ class GoCardless extends PaymentBase
                         $oPayment->custom_data
                     );
 
-                    if (!empty($sTxnId)) {
+                    if (!empty($sTransactionId)) {
 
                         //  Set the response as processing, GoCardless will let us know when the payment is complete
                         $oCompleteResponse
                             ->setStatusProcessing()
-                            ->setTxnId($sTxnId)
+                            ->setTransactionId($sTransactionId)
                             ->setFee($this->calculateFee($oPayment->amount->raw));
 
                     } else {
@@ -547,13 +547,13 @@ class GoCardless extends PaymentBase
                 ],
             ]);
 
-        $sTxnId = null;
+        $sTransactionId = null;
 
         if ($oGCResponse->api_response->status_code === $oHttpCodes::STATUS_CREATED) {
-            $sTxnId = $oGCResponse->api_response->body->payments->id;
+            $sTransactionId = $oGCResponse->api_response->body->payments->id;
         }
 
-        return $sTxnId;
+        return $sTransactionId;
     }
 
     // --------------------------------------------------------------------------
@@ -662,18 +662,18 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param string           $sTxnId       The transaction's ID
-     * @param int              $iAmount      The amount to refund
-     * @param Currency         $oCurrency    The currency in which to refund
-     * @param stdClass         $oPaymentData The payment data object
-     * @param string           $sReason      The refund's reason
-     * @param Resource\Payment $oPayment     The payment object
-     * @param Resource\Invoice $oInvoice     The invoice object
+     * @param string           $sTransactionId The transaction's ID
+     * @param int              $iAmount        The amount to refund
+     * @param Currency         $oCurrency      The currency in which to refund
+     * @param stdClass         $oPaymentData   The payment data object
+     * @param string           $sReason        The refund's reason
+     * @param Resource\Payment $oPayment       The payment object
+     * @param Resource\Invoice $oInvoice       The invoice object
      *
      * @return RefundResponse
      */
     public function refund(
-        string $sTxnId,
+        string $sTransactionId,
         int $iAmount,
         Currency $oCurrency,
         stdClass $oPaymentData,
@@ -708,7 +708,7 @@ class GoCardless extends PaymentBase
                         'metadata'                  => $aMetaData,
                         'total_amount_confirmation' => $iAmount,
                         'links'                     => [
-                            'payment' => $sTxnId,
+                            'payment' => $sTransactionId,
                         ],
                     ],
                 ]
@@ -716,16 +716,16 @@ class GoCardless extends PaymentBase
 
             dumpanddie($oGCResponse);
 
-            $sTxnId = null;
+            $sTransactionId = null;
 
             //  @todo - correct?
             if ($oGCResponse->api_response->status_code === 201) {
-                $sTxnId = $oGCResponse->api_response->body->refunds->id;
+                $sTransactionId = $oGCResponse->api_response->body->refunds->id;
             }
 
             $oRefundResponse
                 ->setStatusProcessing()
-                ->setTxnId($sTxnId)
+                ->setTransactionId($sTransactionId)
                 ->setFee($this->calculateFee($iAmount)); //  @todo will this calculation be correct for partial payments?
 
         } catch (ApiConnectionException $e) {

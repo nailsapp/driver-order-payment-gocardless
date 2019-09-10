@@ -119,16 +119,16 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param int                  $iAmount      The payment amount
-     * @param Currency             $oCurrency    The payment currency
-     * @param stdClass             $oData        An array of driver data
-     * @param stdClass             $oPaymentData The payment data object
-     * @param string               $sDescription The charge description
-     * @param Resource\Payment     $oPayment     The payment object
-     * @param Resource\Invoice     $oInvoice     The invoice object
-     * @param string               $sSuccessUrl  The URL to go to after successful payment
-     * @param string               $sErrorUrl    The URL to go to after failed payment
-     * @param Resource\Source|null $oSource      The saved payment source to use
+     * @param int                           $iAmount      The payment amount
+     * @param Currency                      $oCurrency    The payment currency
+     * @param stdClass                      $oData        An array of driver data
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment data object
+     * @param string                        $sDescription The charge description
+     * @param Resource\Payment              $oPayment     The payment object
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param string                        $sSuccessUrl  The URL to go to after successful payment
+     * @param string                        $sErrorUrl    The URL to go to after failed payment
+     * @param Resource\Source|null          $oSource      The saved payment source to use
      *
      * @return ChargeResponse
      */
@@ -136,7 +136,7 @@ class GoCardless extends PaymentBase
         int $iAmount,
         Currency $oCurrency,
         stdClass $oData,
-        stdClass $oPaymentData,
+        Resource\Invoice\Data\Payment $oPaymentData,
         string $sDescription,
         Resource\Payment $oPayment,
         Resource\Invoice $oInvoice,
@@ -510,13 +510,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a payment against a mandate
      *
-     * @param Client           $oClient      The GoCardless client
-     * @param string           $sMandateId   The mandate ID
-     * @param string           $sDescription The payment\'s description
-     * @param int              $iAmount      The amount of the payment
-     * @param Currency         $oCurrency    The currency in which to take payment
-     * @param Resource\Invoice $oInvoice     The invoice object
-     * @param stdClass         $oPaymentData The payment'spayment data object
+     * @param Client                        $oClient      The GoCardless client
+     * @param string                        $sMandateId   The mandate ID
+     * @param string                        $sDescription The payment\'s description
+     * @param int                           $iAmount      The amount of the payment
+     * @param Currency                      $oCurrency    The currency in which to take payment
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment'spayment data object
      *
      * @return string
      * @throws FactoryException
@@ -528,7 +528,7 @@ class GoCardless extends PaymentBase
         int $iAmount,
         Currency $oCurrency,
         Resource\Invoice $oInvoice,
-        stdClass $oPaymentData
+        Resource\Invoice\Data\Payment $oPaymentData
     ): string {
 
         /** @var HttpCodes $oHttpCodes */
@@ -594,14 +594,14 @@ class GoCardless extends PaymentBase
     /**
      * Extract the meta data from the invoice and payment data objects
      *
-     * @param Resource\Invoice $oInvoice     The invoice object
-     * @param stdClass         $oPaymentData The payment data object
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment data object
      *
      * @return array
      */
     protected function extractMetaData(
         Resource\Invoice $oInvoice,
-        stdClass $oPaymentData
+        Resource\Invoice\Data\Payment $oPaymentData
     ): array {
 
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
@@ -662,13 +662,13 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param string           $sTransactionId The transaction's ID
-     * @param int              $iAmount        The amount to refund
-     * @param Currency         $oCurrency      The currency in which to refund
-     * @param stdClass         $oPaymentData   The payment data object
-     * @param string           $sReason        The refund's reason
-     * @param Resource\Payment $oPayment       The payment object
-     * @param Resource\Invoice $oInvoice       The invoice object
+     * @param string                        $sTransactionId The transaction's ID
+     * @param int                           $iAmount        The amount to refund
+     * @param Currency                      $oCurrency      The currency in which to refund
+     * @param Resource\Invoice\Data\Payment $oPaymentData   The payment data object
+     * @param string                        $sReason        The refund's reason
+     * @param Resource\Payment              $oPayment       The payment object
+     * @param Resource\Invoice              $oInvoice       The invoice object
      *
      * @return RefundResponse
      */
@@ -676,7 +676,7 @@ class GoCardless extends PaymentBase
         string $sTransactionId,
         int $iAmount,
         Currency $oCurrency,
-        stdClass $oPaymentData,
+        Resource\Invoice\Data\Payment $oPaymentData,
         string $sReason,
         Resource\Payment $oPayment,
         Resource\Invoice $oInvoice

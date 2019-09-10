@@ -19,9 +19,7 @@ use GoCardlessPro\Core\Exception\ApiConnectionException;
 use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
 use Nails\Auth\Service\Session;
-use Nails\Auth\Service\User\Meta;
 use Nails\Common\Exception\FactoryException;
-use Nails\Common\Exception\NailsException;
 use Nails\Common\Service\HttpCodes;
 use Nails\Currency\Resource\Currency;
 use Nails\Environment;
@@ -124,7 +122,7 @@ class GoCardless extends PaymentBase
      * @param int                  $iAmount      The payment amount
      * @param Currency             $oCurrency    The payment currency
      * @param stdClass             $oData        An array of driver data
-     * @param stdClass             $oCustomData  The custom data object
+     * @param stdClass             $oPaymentData The payment data object
      * @param string               $sDescription The charge description
      * @param Resource\Payment     $oPayment     The payment object
      * @param Resource\Invoice     $oInvoice     The invoice object
@@ -138,7 +136,7 @@ class GoCardless extends PaymentBase
         int $iAmount,
         Currency $oCurrency,
         stdClass $oData,
-        stdClass $oCustomData,
+        stdClass $oPaymentData,
         string $sDescription,
         Resource\Payment $oPayment,
         Resource\Invoice $oInvoice,
@@ -181,7 +179,7 @@ class GoCardless extends PaymentBase
                 $iAmount,
                 $oCurrency,
                 $oInvoice,
-                $oCustomData
+                $oPaymentData
             );
 
             if (!empty($sTxnId)) {
@@ -518,7 +516,7 @@ class GoCardless extends PaymentBase
      * @param int              $iAmount      The amount of the payment
      * @param Currency         $oCurrency    The currency in which to take payment
      * @param Resource\Invoice $oInvoice     The invoice object
-     * @param stdClass         $oCustomData  The payment'scustom data object
+     * @param stdClass         $oPaymentData The payment'spayment data object
      *
      * @return string
      * @throws FactoryException
@@ -530,7 +528,7 @@ class GoCardless extends PaymentBase
         int $iAmount,
         Currency $oCurrency,
         Resource\Invoice $oInvoice,
-        stdClass $oCustomData
+        stdClass $oPaymentData
     ): string {
 
         /** @var HttpCodes $oHttpCodes */
@@ -542,7 +540,7 @@ class GoCardless extends PaymentBase
                     'description' => $sDescription,
                     'amount'      => $iAmount,
                     'currency'    => $oCurrency->code,
-                    'metadata'    => $this->extractMetaData($oInvoice, $oCustomData),
+                    'metadata'    => $this->extractMetaData($oInvoice, $oPaymentData),
                     'links'       => [
                         'mandate' => $sMandateId,
                     ],
@@ -594,16 +592,16 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Extract the meta data from the invoice and custom data objects
+     * Extract the meta data from the invoice and payment data objects
      *
-     * @param Resource\Invoice $oInvoice    The invoice object
-     * @param stdClass         $oCustomData The custom data object
+     * @param Resource\Invoice $oInvoice     The invoice object
+     * @param stdClass         $oPaymentData The payment data object
      *
      * @return array
      */
     protected function extractMetaData(
         Resource\Invoice $oInvoice,
-        stdClass $oCustomData
+        stdClass $oPaymentData
     ): array {
 
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
@@ -615,8 +613,8 @@ class GoCardless extends PaymentBase
             'invoiceRef' => $oInvoice->ref,
         ];
 
-        if (!empty($oCustomData->metadata)) {
-            $aMetaData = array_merge($aMetaData, (array) $oCustomData->metadata);
+        if (!empty($oPaymentData->metadata)) {
+            $aMetaData = array_merge($aMetaData, (array) $oPaymentData->metadata);
         }
 
         $aCleanMetaData = [];
@@ -664,13 +662,13 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param string           $sTxnId      The transaction's ID
-     * @param int              $iAmount     The amount to refund
-     * @param Currency         $oCurrency   The currency in which to refund
-     * @param stdClass         $oCustomData The custom data object
-     * @param string           $sReason     The refund's reason
-     * @param Resource\Payment $oPayment    The payment object
-     * @param Resource\Invoice $oInvoice    The invoice object
+     * @param string           $sTxnId       The transaction's ID
+     * @param int              $iAmount      The amount to refund
+     * @param Currency         $oCurrency    The currency in which to refund
+     * @param stdClass         $oPaymentData The payment data object
+     * @param string           $sReason      The refund's reason
+     * @param Resource\Payment $oPayment     The payment object
+     * @param Resource\Invoice $oInvoice     The invoice object
      *
      * @return RefundResponse
      */
@@ -678,7 +676,7 @@ class GoCardless extends PaymentBase
         string $sTxnId,
         int $iAmount,
         Currency $oCurrency,
-        stdClass $oCustomData,
+        stdClass $oPaymentData,
         string $sReason,
         Resource\Payment $oPayment,
         Resource\Invoice $oInvoice
@@ -702,7 +700,7 @@ class GoCardless extends PaymentBase
         try {
 
             $oClient     = $this->getClient();
-            $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
+            $aMetaData   = $this->extractMetaData($oInvoice, $oPaymentData);
             $oGCResponse = $oClient->refunds()->create(
                 [
                     'params' => [

@@ -143,6 +143,7 @@ class GoCardless extends PaymentBase
         Resource\Invoice $oInvoice,
         string $sSuccessUrl,
         string $sErrorUrl,
+        bool $bCustomerPresent,
         Resource\Source $oSource = null
     ): ChargeResponse {
 

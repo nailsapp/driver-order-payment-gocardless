@@ -12,63 +12,82 @@
 
 namespace Nails\Invoice\Driver\Payment;
 
+use DateTime;
+use GoCardlessPro;
 use GoCardlessPro\Client;
 use GoCardlessPro\Core\Exception\ApiConnectionException;
 use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
+use Nails\Auth;
+use Nails\Auth\Service\Session;
+use Nails\Common\Exception\FactoryException;
+use Nails\Common\Service\HttpCodes;
+use Nails\Currency\Resource\Currency;
 use Nails\Environment;
 use Nails\Factory;
+use Nails\Invoice\Constants;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
+use Nails\Invoice\Factory\ChargeResponse;
+use Nails\Invoice\Factory\CompleteResponse;
+use Nails\Invoice\Factory\RefundResponse;
+use Nails\Invoice\Factory\ScaResponse;
+use Nails\Invoice\Model\Source;
+use Nails\Invoice\Resource;
+use stdClass;
 
+/**
+ * Class GoCardless
+ *
+ * @package Nails\Invoice\Driver\Payment
+ */
 class GoCardless extends PaymentBase
 {
-    protected $sMandateTable = NAILS_DB_PREFIX . 'user_meta_invoice_gocardless_mandate';
-    protected $aMandates;
-
-    // --------------------------------------------------------------------------
-
+    /**
+     * The name of the session variable to track the user
+     *
+     * @var string
+     */
     const SESSION_TOKEN_KEY = 'gocardless_session_token';
-
-    // --------------------------------------------------------------------------
-
-    public function __construct()
-    {
-        parent::__construct();
-
-        //  Get any mandates this user might have
-        if (isLoggedIn()) {
-
-            $oUserMeta       = Factory::model('UserMeta', 'nails/module-auth');
-            $this->aMandates = $oUserMeta->getMany($this->sMandateTable, activeUser('id'));
-
-        } else {
-
-            $this->aMandates = [];
-        }
-    }
 
     // --------------------------------------------------------------------------
 
     /**
      * Returns whether the driver is available to be used against the selected invoice
-     * @return boolean
+     *
+     * @param Resource\Invoice $oInvoice The invoice being charged
+     *
+     * @return bool
      */
-    public function isAvailable()
+    public function isAvailable(Resource\Invoice $oInvoice): bool
     {
-        // This driver can only be used with logged in users
-        return isLoggedIn();
+        return true;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Returns the currencies which this driver supports, it will only be presented
+     * when attempting to pay an invoice in a supported currency
+     *
+     * @return string[]|null
+     */
+    public function getSupportedCurrencies(): ?array
+    {
+        //  @todo (Pablo - 2019-08-01) - Automate this
+        return ['AUD', 'CAD', 'DKK', 'EUR', 'GBP', 'NZD', 'SEK', 'USD'];
     }
 
     // --------------------------------------------------------------------------
 
     /**
      * Returns whether the driver uses a redirect payment flow or not.
-     * @return boolean
+     *
+     * @return bool
      */
-    public function isRedirect()
+    public function isRedirect(): bool
     {
-        return empty($this->aMandates);
+        return true;
     }
 
     // --------------------------------------------------------------------------
@@ -76,33 +95,24 @@ class GoCardless extends PaymentBase
     /**
      * Returns the payment fields the driver requires, 'CARD' for basic credit
      * card details.
+     *
      * @return mixed
      */
     public function getPaymentFields()
     {
-        if (!empty($this->aMandates) && count($this->aMandates) > 1) {
+        return [];
+    }
 
-            $aOptions = [
-                '' => 'Please choose',
-            ];
-            foreach ($this->aMandates as $oMandate) {
-                $aOptions[$oMandate->id] = $oMandate->label;
-            }
+    // --------------------------------------------------------------------------
 
-            return [
-                [
-                    'key'      => 'mandate_id',
-                    'type'     => 'dropdown',
-                    'label'    => 'Mandate',
-                    'required' => true,
-                    'options'  => $aOptions,
-                ],
-            ];
-
-        } else {
-
-            return [];
-        }
+    /**
+     * Returns any assets to load during checkout
+     *
+     * @return array
+     */
+    public function getCheckoutAssets(): array
+    {
+        return [];
     }
 
     // --------------------------------------------------------------------------
@@ -110,143 +120,86 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param  integer   $iAmount      The payment amount
-     * @param  string    $sCurrency    The payment currency
-     * @param  \stdClass $oData        The driver data object
-     * @param  \stdClass $oCustomData  The custom data object
-     * @param  string    $sDescription The charge description
-     * @param  \stdClass $oPayment     The payment object
-     * @param  \stdClass $oInvoice     The invoice object
-     * @param  string    $sSuccessUrl  The URL to go to after successful payment
-     * @param  string    $sFailUrl     The URL to go to after failed payment
-     * @param  string    $sContinueUrl The URL to go to after payment is completed
+     * @param int                           $iAmount      The payment amount
+     * @param Currency                      $oCurrency    The payment currency
+     * @param stdClass                      $oData        An array of driver data
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment data object
+     * @param string                        $sDescription The charge description
+     * @param Resource\Payment              $oPayment     The payment object
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param string                        $sSuccessUrl  The URL to go to after successful payment
+     * @param string                        $sErrorUrl    The URL to go to after failed payment
+     * @param Resource\Source|null          $oSource      The saved payment source to use
      *
-     * @return \Nails\Invoice\Model\ChargeResponse
+     * @return ChargeResponse
      */
     public function charge(
-        $iAmount,
-        $sCurrency,
-        $oData,
-        $oCustomData,
-        $sDescription,
-        $oPayment,
-        $oInvoice,
-        $sSuccessUrl,
-        $sFailUrl,
-        $sContinueUrl
-    ) {
+        int $iAmount,
+        Currency $oCurrency,
+        stdClass $oData,
+        Resource\Invoice\Data\Payment $oPaymentData,
+        string $sDescription,
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice,
+        string $sSuccessUrl,
+        string $sErrorUrl,
+        bool $bCustomerPresent,
+        Resource\Source $oSource = null
+    ): ChargeResponse {
 
-        $oChargeResponse = Factory::factory('ChargeResponse', 'nails/module-invoice');
+        /** @var ChargeResponse $oChargeResponse */
+        $oChargeResponse = Factory::factory('ChargeResponse', Constants::MODULE_SLUG);
 
         try {
 
             $oClient = $this->getClient();
 
-            /**
-             * What we do here depends on a number of things:
-             * - If a mandate_id is specified then use it
-             *   - If it is passed in as $oCustomData data then use it. It's coming from the developer.
-             *   - If it is passed in as $oData then it's coming from the user and needs to be checked
-             * - If we have 1 mandate then we're using it
-             * - If we have 0 mandates, then we're using a redirect flow
-             */
-            $sMandateId = null;
-            $bRedirect  = false;
-
-            if (!empty($oCustomData->mandate_id)) {
-
-                //  Supplied by dev, trust it
-                $sMandateId = $oCustomData->mandate_id;
-
-            } elseif (!empty($oData->mandate_id)) {
-
-                //  Supplied by user, validate they have the right to use it
-                foreach ($this->aMandates as $oMandate) {
-                    if ($oMandate->id == $oData->mandate_id) {
-                        $sMandateId = $oMandate->mandate_id;
-                        break;
-                    }
-                }
-
-            } elseif (count($this->aMandates) == 1) {
-
-                //  Nothing supplied, but 1 mandate detected, use it
-                $sMandateId = $this->aMandates[0]->mandate_id;
-
-            } else {
-
-                //  Redirect flow
-                $bRedirect = true;
+            if (empty($oSource)) {
+                /**
+                 * No payment source selected, create a new redirect flow in order to create a new mandate.
+                 */
+                return $this->createNewRedirectFlow(
+                    $oClient,
+                    $oChargeResponse,
+                    $oInvoice,
+                    $sSuccessUrl
+                );
             }
 
-            if ($bRedirect) {
+            $aSourceData = json_decode($oSource->data, JSON_OBJECT_AS_ARRAY) ?? [];
+            $sMandateId  = getFromArray('mandate_id', $aSourceData);
 
-                /**
-                 * Generate a random session token
-                 * GoCardless uses this to verify that the person completing the redirect flow
-                 * is the same person who initiated it.
-                 */
+            if (empty($sMandateId)) {
+                throw new DriverException('Could not acertain the "mandate_id" from the Source object.');
+            }
 
-                Factory::helper('string');
-                $oSession      = Factory::service('Session', 'nails/module-auth');
-                $sSessionToken = random_string('alnum', 32);
-                $oSession->setUserData(self::SESSION_TOKEN_KEY, $sSessionToken);
+            //  Create a payment against the mandate
+            $sTransactionId = $this->createPayment(
+                $oClient,
+                $sMandateId,
+                $sDescription,
+                $iAmount,
+                $oCurrency,
+                $oInvoice,
+                $oPaymentData
+            );
 
-                //  Create a new redirect flow
-                $oGCResponse = $oClient->redirectFlows()->create(
-                    [
-                        'params' => [
-                            'session_token'        => $sSessionToken,
-                            'success_redirect_url' => $sSuccessUrl,
-                        ],
-                    ]
-                );
+            if (!empty($sTransactionId)) {
 
-                if ($oGCResponse->api_response->status_code === 201) {
+                //  Set the response as processing, GoCardless will let us know when the payment is complete
+                $oChargeResponse
+                    ->setStatusProcessing()
+                    ->setTransactionId($sTransactionId)
+                    ->setFee($this->calculateFee($iAmount));
 
-                    $oChargeResponse->setRedirectUrl(
-                        $oGCResponse->api_response->body->redirect_flows->redirect_url
-                    );
-
-                } else {
-
-                    //  @todo: handle errors returned by the GoCardless Client/API
-                    $oChargeResponse->setStatusFailed(
-                        null,
-                        0,
-                        'The gateway rejected the request, you may wish to try again.'
-                    );
-                }
-
-            } elseif (empty($sMandateId)) {
-                throw new DriverException('Missing Mandate ID.', 1);
             } else {
-                //  Create a payment against the mandate
-                $sTxnId = $this->createPayment(
-                    $oClient,
-                    $sMandateId,
-                    $sDescription,
-                    $iAmount,
-                    $sCurrency,
-                    $oInvoice,
-                    $oCustomData
-                );
 
-                if (!empty($sTxnId)) {
-
-                    //  Set the response as processing, GoCardless will let us know when the payment is complete
-                    $oChargeResponse->setStatusProcessing();
-                    $oChargeResponse->setTxnId($sTxnId);
-                    $oChargeResponse->setFee($this->calculateFee($iAmount));
-
-                } else {
-
-                    $oChargeResponse->setStatusFailed(
+                $oChargeResponse
+                    ->setStatusFailed(
+                        'No transaction ID was returned.',
                         null,
-                        0,
                         'The gateway rejected the request, you may wish to try again.'
                     );
-                }
             }
 
         } catch (ApiConnectionException $e) {
@@ -290,17 +243,130 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
+     * Creates a new redirect flow for creating a new mandate
+     *
+     * @param Client         $oClient         The GoCardless Client
+     * @param ChargeResponse $oChargeResponse The ChargeResponse object
+     * @param string         $sSuccessUrl     The success URL
+     *
+     * @return ChargeResponse
+     */
+    protected function createNewRedirectFlow(
+        Client $oClient,
+        ChargeResponse $oChargeResponse,
+        Resource\Invoice $oInvoice,
+        string $sSuccessUrl
+    ): ChargeResponse {
+
+        try {
+
+            /**
+             * Generate a random session token
+             * GoCardless uses this to verify that the person completing the redirect flow
+             * is the same person who initiated it.
+             */
+
+            Factory::helper('string');
+
+            /** @var Session $oSession */
+            $oSession = Factory::service('Session', Auth\Constants::MODULE_SLUG);
+            /** @var HttpCodes $oHttpCodes */
+            $oHttpCodes = Factory::service('HttpCodes');
+
+            $sSessionToken = random_string('alnum', 32);
+            $oSession->setUserData(self::SESSION_TOKEN_KEY, $sSessionToken);
+
+            $aRequestData = [
+                'params' => [
+                    'session_token'        => $sSessionToken,
+                    'success_redirect_url' => $sSuccessUrl,
+                ],
+            ];
+
+            if (!empty($oInvoice->customer)) {
+                $aRequestData['params']['prefilled_customer'] = [
+                    'address_line1' => (string) $oInvoice->customer->billing_address->line_1,
+                    'address_line2' => (string) $oInvoice->customer->billing_address->line_2,
+                    'city'          => (string) $oInvoice->customer->billing_address->town,
+                    'postal_code'   => (string) $oInvoice->customer->billing_address->postcode,
+                    'company_name'  => (string) $oInvoice->customer->organisation,
+                    'email'         => (string) $oInvoice->customer->billing_email ?: $oInvoice->customer->email,
+                    'family_name'   => (string) $oInvoice->customer->last_name,
+                    'given_name'    => (string) $oInvoice->customer->first_name,
+                ];
+            }
+
+            $oGCResponse = $oClient
+                ->redirectFlows()
+                ->create($aRequestData);
+
+            if ($oGCResponse->api_response->status_code !== $oHttpCodes::STATUS_CREATED) {
+                $oChargeResponse
+                    ->setStatusFailed(
+                        'Did not receive a 201 CREATED resposne when creating a redirect flow.',
+                        null,
+                        'An error occurred whilst communicating with the gateway, you may wish to try again.'
+                    );
+            }
+
+            $oChargeResponse
+                ->setRedirectUrl(
+                    $oGCResponse->api_response->body->redirect_flows->redirect_url
+                );
+
+        } catch (\Exception $e) {
+            $oChargeResponse
+                ->setStatusFailed(
+                    $e->getMessage(),
+                    $e->getCode(),
+                    'The gateway rejected the request, you may wish to try again.'
+                );
+        }
+
+        return $oChargeResponse;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Handles any SCA requests
+     *
+     * @param ScaResponse $oScaResponse The SCA Response object
+     * @param array       $aData        Any saved SCA data
+     * @param string      $sSuccessUrl  The URL to redirect to after authorisation
+     *
+     * @return ScaResponse
+     */
+    public function sca(ScaResponse $oScaResponse, array $aData, string $sSuccessUrl): ScaResponse
+    {
+        //  @todo (Pablo - 2019-07-24) - Implement this method
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
      * Complete the payment
      *
-     * @param  \stdClass $oPayment The Payment object
-     * @param  \stdClass $oInvoice The Invoice object
-     * @param  array     $aGetVars Any $_GET variables passed from the redirect flow
+     * @param Resource\Payment $oPayment  The Payment object
+     * @param Resource\Invoice $oInvoice  The Invoice object
+     * @param array            $aGetVars  Any $_GET variables passed from the redirect flow
+     * @param array            $aPostVars Any $_POST variables passed from the redirect flow
      *
-     * @return \Nails\Invoice\Model\CompleteResponse
+     * @return CompleteResponse
      */
-    public function complete($oPayment, $oInvoice, $aGetVars)
-    {
-        $oCompleteResponse = Factory::factory('CompleteResponse', 'nails/module-invoice');
+    public function complete(
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice,
+        $aGetVars,
+        $aPostVars
+    ): CompleteResponse {
+
+        /** @var CompleteResponse $oCompleteResponse */
+        $oCompleteResponse = Factory::factory('CompleteResponse', Constants::MODULE_SLUG);
+        /** @var Session $oSession */
+        $oSession = Factory::service('Session', Auth\Constants::MODULE_SLUG);
+        /** @var HttpCodes $oHttpCodes */
+        $oHttpCodes = Factory::service('HttpCodes');
 
         try {
 
@@ -308,7 +374,6 @@ class GoCardless extends PaymentBase
 
             //  Retrieve data required for the completion
             $sRedirectFlowId = getFromArray('redirect_flow_id', $aGetVars);
-            $oSession        = Factory::service('Session', 'nails/module-auth');
             $sSessionToken   = $oSession->getUserData(self::SESSION_TOKEN_KEY);
 
             $oSession->unsetUserData(self::SESSION_TOKEN_KEY);
@@ -332,57 +397,65 @@ class GoCardless extends PaymentBase
             } else {
 
                 //  Complete the redirect flow
-                $oGCResponse = $oClient->redirectFlows()->complete(
-                    $sRedirectFlowId,
-                    [
-                        'params' => [
-                            'session_token' => $sSessionToken,
-                        ],
-                    ]
-                );
-
-                if ($oGCResponse->api_response->status_code === 200) {
-
-                    //  Save the mandate against user meta
-                    $oUserMeta  = Factory::model('UserMeta', 'nails/module-auth');
-                    $oNow       = Factory::factory('DateTime');
-                    $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
-
-                    $oUserMeta->update(
-                        $this->sMandateTable,
-                        activeUser('id'),
+                $oGCResponse = $oClient
+                    ->redirectFlows()
+                    ->complete(
+                        $sRedirectFlowId,
                         [
-                            'label'      => 'Direct Debit Mandate (Created ' . $oNow->format('jS F, Y') . ')',
-                            'mandate_id' => $sMandateId,
-                            'created'    => $oNow->format('Y-m-d H:i:s'),
+                            'params' => [
+                                'session_token' => $sSessionToken,
+                            ],
                         ]
                     );
 
+                if ($oGCResponse->api_response->status_code === $oHttpCodes::STATUS_OK) {
+
+                    /**
+                     * Create a new payment source
+                     *
+                     * In practice a direct debit is created to be charged against multiple times,
+                     * therefore I think it's sane to save this as a payment source for the customer
+                     * by default.
+                     */
+
+                    $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
+                    /** @var Source $oSourceModel */
+                    $oSourceModel = Factory::model('Source', Constants::MODULE_SLUG);
+                    /** @var DateTime $oNow */
+                    $oNow = Factory::factory('DateTime');
+
+                    $oSourceModel->create([
+                        'customer_id' => $oInvoice->customer->id,
+                        'driver'      => $this->getSlug(),
+                        'mandate_id'  => $sMandateId,
+                    ]);
+
                     //  Create a payment against the mandate
-                    $sTxnId = $this->createPayment(
+                    $sTransactionId = $this->createPayment(
                         $oClient,
                         $sMandateId,
                         $oPayment->description,
                         $oPayment->amount->raw,
-                        $oPayment->currency->code,
+                        $oPayment->currency,
                         $oInvoice,
                         $oPayment->custom_data
                     );
 
-                    if (!empty($sTxnId)) {
+                    if (!empty($sTransactionId)) {
 
                         //  Set the response as processing, GoCardless will let us know when the payment is complete
-                        $oCompleteResponse->setStatusProcessing();
-                        $oCompleteResponse->setTxnId($sTxnId);
-                        $oCompleteResponse->setFee($this->calculateFee($oPayment->amount->raw));
+                        $oCompleteResponse
+                            ->setStatusProcessing()
+                            ->setTransactionId($sTransactionId)
+                            ->setFee($this->calculateFee($oPayment->amount->raw));
 
                     } else {
-
-                        $oCompleteResponse->setStatusFailed(
-                            null,
-                            0,
-                            'The gateway rejected the request, you may wish to try again.'
-                        );
+                        $oCompleteResponse
+                            ->setStatusFailed(
+                                'No transaction ID was returned.',
+                                null,
+                                'The gateway rejected the request, you may wish to try again.'
+                            );
                     }
 
                 } else {
@@ -390,7 +463,7 @@ class GoCardless extends PaymentBase
                     //  @todo: handle errors returned by the GoCardless Client/API
                     $oCompleteResponse->setStatusFailed(
                         null,
-                        0,
+                        null,
                         'The gateway rejected the request, you may wish to try again.'
                     );
                 }
@@ -439,80 +512,81 @@ class GoCardless extends PaymentBase
     /**
      * Creates a payment against a mandate
      *
-     * @param  \GoCardlessPro\Client $oClient      The GoCardless client
-     * @param  string                $sMandateId   The mandate ID
-     * @param  string                $sDescription The payment\'s description
-     * @param  integer               $iAmount      The amount of the payment
-     * @param  string                $sCurrency    The currency in which to take payment
-     * @param  \stdClass             $oInvoice     The invoice object
-     * @param  \stdClass             $oCustomData  The payment'scustom data object
+     * @param Client                        $oClient      The GoCardless client
+     * @param string                        $sMandateId   The mandate ID
+     * @param string                        $sDescription The payment\'s description
+     * @param int                           $iAmount      The amount of the payment
+     * @param Currency                      $oCurrency    The currency in which to take payment
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment'spayment data object
      *
      * @return string
+     * @throws FactoryException
      */
     protected function createPayment(
-        $oClient,
-        $sMandateId,
-        $sDescription,
-        $iAmount,
-        $sCurrency,
-        $oInvoice,
-        $oCustomData
-    ) {
+        Client $oClient,
+        string $sMandateId,
+        string $sDescription,
+        int $iAmount,
+        Currency $oCurrency,
+        Resource\Invoice $oInvoice,
+        Resource\Invoice\Data\Payment $oPaymentData
+    ): string {
 
-        $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
-        $oGCResponse = $oClient->payments()->create(
-            [
+        /** @var HttpCodes $oHttpCodes */
+        $oHttpCodes  = Factory::service('HttpCodes');
+        $oGCResponse = $oClient
+            ->payments()
+            ->create([
                 'params' => [
                     'description' => $sDescription,
                     'amount'      => $iAmount,
-                    'currency'    => $sCurrency,
-                    'metadata'    => $aMetaData,
+                    'currency'    => $oCurrency->code,
+                    'metadata'    => $this->extractMetaData($oInvoice, $oPaymentData),
                     'links'       => [
                         'mandate' => $sMandateId,
                     ],
                 ],
-            ]
-        );
+            ]);
 
-        $sTxnId = null;
+        $sTransactionId = null;
 
-        if ($oGCResponse->api_response->status_code === 201) {
-            $sTxnId = $oGCResponse->api_response->body->payments->id;
+        if ($oGCResponse->api_response->status_code === $oHttpCodes::STATUS_CREATED) {
+            $sTransactionId = $oGCResponse->api_response->body->payments->id;
         }
 
-        return $sTxnId;
+        return $sTransactionId;
     }
 
     // --------------------------------------------------------------------------
 
     /**
      * Get the GoCardless Client
-     * @return \GoCardlessPro\Client
+     *
+     * @return Client
      * @throws DriverException
      */
-    protected function getClient()
+    protected function getClient(): Client
     {
         if (Environment::is(Environment::ENV_PROD)) {
 
             $sAccessToken = $this->getSetting('sAccessTokenLive');
-            $sEnvironment = \GoCardlessPro\Environment::LIVE;
+            $sEnvironment = GoCardlessPro\Environment::LIVE;
 
         } else {
 
             $sAccessToken = $this->getSetting('sAccessTokenSandbox');
-            $sEnvironment = \GoCardlessPro\Environment::SANDBOX;
+            $sEnvironment = GoCardlessPro\Environment::SANDBOX;
         }
 
         if (empty($sAccessToken)) {
             throw new DriverException('Missing GoCardless Access Token.', 1);
         }
 
-        $oClient = new Client(
-            [
-                'access_token' => $sAccessToken,
-                'environment'  => $sEnvironment,
-            ]
-        );
+        $oClient = new Client([
+            'access_token' => $sAccessToken,
+            'environment'  => $sEnvironment,
+        ]);
 
         return $oClient;
     }
@@ -520,15 +594,18 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Extract the meta data from the invoice and custom data objects
+     * Extract the meta data from the invoice and payment data objects
      *
-     * @param  \stdClass $oInvoice    The invoice object
-     * @param  \stdClass $oCustomData The custom data object
+     * @param Resource\Invoice              $oInvoice     The invoice object
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment data object
      *
      * @return array
      */
-    protected function extractMetaData($oInvoice, $oCustomData)
-    {
+    protected function extractMetaData(
+        Resource\Invoice $oInvoice,
+        Resource\Invoice\Data\Payment $oPaymentData
+    ): array {
+
         //  Store any custom meta data; GC allows up to 3 key value pairs with key
         //  names up to 50 characters and values up to 500 characters.
 
@@ -538,8 +615,8 @@ class GoCardless extends PaymentBase
             'invoiceRef' => $oInvoice->ref,
         ];
 
-        if (!empty($oCustomData->metadata)) {
-            $aMetaData = array_merge($aMetaData, (array) $oCustomData->metadata);
+        if (!empty($oPaymentData->metadata)) {
+            $aMetaData = array_merge($aMetaData, (array) $oPaymentData->metadata);
         }
 
         $aCleanMetaData = [];
@@ -563,11 +640,11 @@ class GoCardless extends PaymentBase
     /**
      * Calculate the fee which will be charged by GoCardless
      *
-     * @param  integer $iAmount The amount of the transaction
+     * @param int $iAmount The amount of the transaction
      *
-     * @return integer
+     * @return int
      */
-    protected function calculateFee($iAmount)
+    protected function calculateFee(int $iAmount): int
     {
         /**
          * As of 17/03/2015 there is no API method or property describing the fee which GoCardless will charge
@@ -587,27 +664,28 @@ class GoCardless extends PaymentBase
     /**
      * Issue a refund for a payment
      *
-     * @param  string    $sTxnId      The transaction's ID
-     * @param  integer   $iAmount     The amount to refund
-     * @param  string    $sCurrency   The currency in which to refund
-     * @param  \stdClass $oCustomData The custom data object
-     * @param  string    $sReason     The refund's reason
-     * @param  \stdClass $oPayment    The payment object
-     * @param  \stdClass $oInvoice    The invoice object
+     * @param string                        $sTransactionId The transaction's ID
+     * @param int                           $iAmount        The amount to refund
+     * @param Currency                      $oCurrency      The currency in which to refund
+     * @param Resource\Invoice\Data\Payment $oPaymentData   The payment data object
+     * @param string                        $sReason        The refund's reason
+     * @param Resource\Payment              $oPayment       The payment object
+     * @param Resource\Invoice              $oInvoice       The invoice object
      *
-     * @return \Nails\Invoice\Model\RefundResponse
+     * @return RefundResponse
      */
     public function refund(
-        $sTxnId,
-        $iAmount,
-        $sCurrency,
-        $oCustomData,
-        $sReason,
-        $oPayment,
-        $oInvoice
-    ) {
+        string $sTransactionId,
+        int $iAmount,
+        Currency $oCurrency,
+        Resource\Invoice\Data\Payment $oPaymentData,
+        string $sReason,
+        Resource\Payment $oPayment,
+        Resource\Invoice $oInvoice
+    ): RefundResponse {
 
-        $oRefundResponse = Factory::factory('RefundResponse', 'nails/module-invoice');
+        /** @var RefundResponse $oRefundResponse */
+        $oRefundResponse = Factory::factory('RefundResponse', Constants::MODULE_SLUG);
 
         //  Bail out on GoCardless refunds until we have an actual need (and can test it properly)
         $oRefundResponse->setStatusFailed(
@@ -624,7 +702,7 @@ class GoCardless extends PaymentBase
         try {
 
             $oClient     = $this->getClient();
-            $aMetaData   = $this->extractMetaData($oInvoice, $oCustomData);
+            $aMetaData   = $this->extractMetaData($oInvoice, $oPaymentData);
             $oGCResponse = $oClient->refunds()->create(
                 [
                     'params' => [
@@ -632,7 +710,7 @@ class GoCardless extends PaymentBase
                         'metadata'                  => $aMetaData,
                         'total_amount_confirmation' => $iAmount,
                         'links'                     => [
-                            'payment' => $sTxnId,
+                            'payment' => $sTransactionId,
                         ],
                     ],
                 ]
@@ -640,17 +718,17 @@ class GoCardless extends PaymentBase
 
             dumpanddie($oGCResponse);
 
-            $sTxnId = null;
+            $sTransactionId = null;
 
             //  @todo - correct?
             if ($oGCResponse->api_response->status_code === 201) {
-                $sTxnId = $oGCResponse->api_response->body->refunds->id;
+                $sTransactionId = $oGCResponse->api_response->body->refunds->id;
             }
 
-            $oRefundResponse->setStatusProcessing();
-            $oRefundResponse->setTxnId($sTxnId);
-            //  @todo will this calculation be correct for partial payments?
-            $oRefundResponse->setFee($this->calculateFee($iAmount));
+            $oRefundResponse
+                ->setStatusProcessing()
+                ->setTransactionId($sTransactionId)
+                ->setFee($this->calculateFee($iAmount)); //  @todo will this calculation be correct for partial payments?
 
         } catch (ApiConnectionException $e) {
 
@@ -689,5 +767,55 @@ class GoCardless extends PaymentBase
         }
 
         return $oRefundResponse;
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Creates a new payment source, returns a semi-populated source resource
+     *
+     * @param Resource\Source $oResource The Resouce object to update
+     * @param array           $aData     Data passed from the caller
+     *
+     * @throws DriverException
+     */
+    public function createSource(
+        Resource\Source &$oResource,
+        array $aData
+    ): void {
+
+        $sMandateId = getFromArray('mandate_id', $aData);
+        if (empty($sMandateId)) {
+            throw new DriverException('"mandate_id" must be supplied when creating a GoCardless payment source.');
+        }
+
+        try {
+
+            $oClient  = $this->getClient();
+            $oMandate = $oClient
+                ->mandates()
+                ->get($sMandateId);
+
+            if (empty($oResource->label)) {
+                $oBankAccount = $oClient
+                    ->customerBankAccounts()
+                    ->get($oMandate->links->customer_bank_account);
+            }
+
+        } catch (\Exception $e) {
+            throw new DriverException(
+                '"' . $sMandateId . '" is not a valid mandate ID.',
+                $e->getCode(),
+                $e
+            );
+        }
+
+        if (empty($oResource->label)) {
+            $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
+        }
+
+        $oResource->data = json_encode([
+            'mandate_id' => $sMandateId,
+        ]);
     }
 }

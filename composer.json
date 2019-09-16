@@ -47,15 +47,7 @@
                         "default": "GoCardless"
                     },
                     {
-                        "key": "iLogoId",
-                        "label": "Logo",
-                        "info": "The logo of the provider, as seen by customers",
-                        "default": null,
-                        "type": "image",
-                        "bucket": "nails-driver-invoice-gocardless"
-                    },
-                    {
-                        "legend": "Test API Keys",
+                        "legend": "API Keys - Test",
                         "fields": [
                             {
                                 "key": "sAccessTokenSandbox",
@@ -66,7 +58,7 @@
                         ]
                     },
                     {
-                        "legend": "Live API Keys",
+                        "legend": "API Keys - Live",
                         "fields": [
                             {
                                 "key": "sAccessTokenLive",

@@ -21,6 +21,7 @@ use GoCardlessPro\Core\Exception\MalformedResponseException;
 use Nails\Auth;
 use Nails\Auth\Service\Session;
 use Nails\Common\Exception\FactoryException;
+use Nails\Common\Exception\NailsException;
 use Nails\Common\Service\HttpCodes;
 use Nails\Currency\Resource\Currency;
 use Nails\Environment;
@@ -817,5 +818,88 @@ class GoCardless extends PaymentBase
         $oResource->data = json_encode([
             'mandate_id' => $sMandateId,
         ]);
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Convinience method for creating a new customer on the gateway
+     *
+     * @param array $aData The driver specific customer data
+     *
+     * @return GoCardlessPro\Resources\Customer
+     * @throws DriverException
+     * @throws NailsException
+     */
+    public function createCustomer(array $aData = []): GoCardlessPro\Resources\Customer
+    {
+        if (empty($aData['company_name']) && empty($aData['given_name']) && empty($aData['family_name'])) {
+            throw new DriverException(
+                'At least one must be supplied: "company_name", or "given_name" and "family_name"'
+            );
+        } elseif (empty($aData['company_name']) && (empty($aData['given_name']) || empty($aData['family_name']))) {
+            throw new DriverException(
+                'Both "given_name" and "family_name" must be supplied'
+            );
+        }
+
+        $oClient = $this->getClient();
+        return $oClient
+            ->customers()
+            ->create([
+                'params' => $aData,
+            ]);
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Convinience method for retrieving an existing customer from the gateway
+     *
+     * @param mixed $mCustomerId The gateway's customer ID
+     * @param array $aData       Any driver specific data
+     *
+     * @return GoCardlessPro\Resources\Customer
+     * @throws DriverException
+     */
+    public function getCustomer($mCustomerId, array $aData = []): GoCardlessPro\Resources\Customer
+    {
+        $oClient = $this->getClient();
+        return $oClient
+            ->customers()
+            ->get($mCustomerId, $aData);
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Convinience method for updating an existing customer on the gateway
+     *
+     * @param mixed $mCustomerId The gateway's customer ID
+     * @param array $aData       The driver specific customer data
+     */
+    public function updateCustomer($mCustomerId, array $aData = [])
+    {
+        $oClient = $this->getClient();
+        return $oClient
+            ->customers()
+            ->update(
+                $mCustomerId,
+                [
+                    'params' => $aData,
+                ]
+            );
+    }
+
+    // --------------------------------------------------------------------------
+
+    /**
+     * Convinience method for deleting an existing customer on the gateway
+     *
+     * @param mixed $mCustomerId The gateway's customer ID
+     */
+    public function deleteCustomer($mCustomerId): void
+    {
+        throw new NailsException('Method not supported by GoCardless SDK');
     }
 }

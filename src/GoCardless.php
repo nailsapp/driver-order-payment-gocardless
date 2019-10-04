@@ -167,8 +167,7 @@ class GoCardless extends PaymentBase
                 );
             }
 
-            $aSourceData = json_decode($oSource->data, JSON_OBJECT_AS_ARRAY) ?? [];
-            $sMandateId  = getFromArray('mandate_id', $aSourceData);
+            $sMandateId = getFromArray('mandate_id', (array) $oSource->data);
 
             if (empty($sMandateId)) {
                 throw new DriverException('Could not ascertain the "mandate_id" from the Source object.');
@@ -815,9 +814,9 @@ class GoCardless extends PaymentBase
             $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
         }
 
-        $oResource->data = json_encode([
+        $oResource->data = (object) [
             'mandate_id' => $sMandateId,
-        ]);
+        ];
     }
 
     // --------------------------------------------------------------------------

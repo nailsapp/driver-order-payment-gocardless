@@ -171,7 +171,7 @@ class GoCardless extends PaymentBase
             $sMandateId  = getFromArray('mandate_id', $aSourceData);
 
             if (empty($sMandateId)) {
-                throw new DriverException('Could not acertain the "mandate_id" from the Source object.');
+                throw new DriverException('Could not ascertain the "mandate_id" from the Source object.');
             }
 
             //  Create a payment against the mandate

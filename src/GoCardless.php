@@ -18,11 +18,10 @@ use GoCardlessPro\Client;
 use GoCardlessPro\Core\Exception\ApiConnectionException;
 use GoCardlessPro\Core\Exception\ApiException;
 use GoCardlessPro\Core\Exception\MalformedResponseException;
-use Nails\Auth;
-use Nails\Auth\Service\Session;
 use Nails\Common\Exception\FactoryException;
 use Nails\Common\Exception\NailsException;
 use Nails\Common\Service\HttpCodes;
+use Nails\Common\Service\Session;
 use Nails\Currency\Resource\Currency;
 use Nails\Environment;
 use Nails\Factory;
@@ -269,7 +268,7 @@ class GoCardless extends PaymentBase
             Factory::helper('string');
 
             /** @var Session $oSession */
-            $oSession = Factory::service('Session', Auth\Constants::MODULE_SLUG);
+            $oSession = Factory::service('Session');
             /** @var HttpCodes $oHttpCodes */
             $oHttpCodes = Factory::service('HttpCodes');
 
@@ -364,7 +363,7 @@ class GoCardless extends PaymentBase
         /** @var CompleteResponse $oCompleteResponse */
         $oCompleteResponse = Factory::factory('CompleteResponse', Constants::MODULE_SLUG);
         /** @var Session $oSession */
-        $oSession = Factory::service('Session', Auth\Constants::MODULE_SLUG);
+            $oSession = Factory::service('Session');
         /** @var HttpCodes $oHttpCodes */
         $oHttpCodes = Factory::service('HttpCodes');
 

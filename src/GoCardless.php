@@ -282,16 +282,24 @@ class GoCardless extends PaymentBase
                 ],
             ];
 
-            if (!empty($oInvoice->customer)) {
+            $oCustomer = $oInvoice->customer();
+
+            if (!empty($oCustomer)) {
+
+                $aAddresses = $oCustomer->addresses();
+                if (count($aAddresses)) {
+                    $oAddress = reset($aAddresses);
+                }
+
                 $aRequestData['params']['prefilled_customer'] = [
-                    'address_line1' => (string) $oInvoice->customer->billing_address->line_1,
-                    'address_line2' => (string) $oInvoice->customer->billing_address->line_2,
-                    'city'          => (string) $oInvoice->customer->billing_address->town,
-                    'postal_code'   => (string) $oInvoice->customer->billing_address->postcode,
-                    'company_name'  => (string) $oInvoice->customer->organisation,
-                    'email'         => (string) $oInvoice->customer->billing_email ?: $oInvoice->customer->email,
-                    'family_name'   => (string) $oInvoice->customer->last_name,
-                    'given_name'    => (string) $oInvoice->customer->first_name,
+                    'address_line1' => (string) ($oAddress->line_1 ?? ''),
+                    'address_line2' => (string) ($oAddress->line_2 ?? ''),
+                    'city'          => (string) ($oAddress->town ?? ''),
+                    'postal_code'   => (string) ($oAddress->postcode ?? ''),
+                    'company_name'  => (string) $oCustomer->organisation,
+                    'email'         => (string) ($oCustomer->billing_email ?: $oCustomer->email),
+                    'family_name'   => (string) $oCustomer->last_name,
+                    'given_name'    => (string) $oCustomer->first_name,
                 ];
             }
 
@@ -363,7 +371,7 @@ class GoCardless extends PaymentBase
         /** @var CompleteResponse $oCompleteResponse */
         $oCompleteResponse = Factory::factory('CompleteResponse', Constants::MODULE_SLUG);
         /** @var Session $oSession */
-            $oSession = Factory::service('Session');
+        $oSession = Factory::service('Session');
         /** @var HttpCodes $oHttpCodes */
         $oHttpCodes = Factory::service('HttpCodes');
 

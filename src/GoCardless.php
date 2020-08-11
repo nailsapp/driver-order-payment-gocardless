@@ -12,7 +12,7 @@
 
 namespace Nails\Invoice\Driver\Payment;
 
-use DateTime;
+use Exception;
 use GoCardlessPro;
 use GoCardlessPro\Client;
 use GoCardlessPro\Core\Exception\ApiConnectionException;
@@ -28,6 +28,7 @@ use Nails\Factory;
 use Nails\Invoice\Constants;
 use Nails\Invoice\Driver\PaymentBase;
 use Nails\Invoice\Exception\DriverException;
+use Nails\Invoice\Exception\ResponseException;
 use Nails\Invoice\Factory\ChargeResponse;
 use Nails\Invoice\Factory\CompleteResponse;
 use Nails\Invoice\Factory\RefundResponse;
@@ -74,7 +75,8 @@ class GoCardless extends PaymentBase
      */
     public function getSupportedCurrencies(): ?array
     {
-        //  @todo (Pablo - 2019-08-01) - Automate this
+        //  Correct as of 2020-08-11
+        //  https://gocardless.com/faq/merchants/international-payments/#text-which-currencies-does-gocardless-support?
         return ['AUD', 'CAD', 'DKK', 'EUR', 'GBP', 'NZD', 'SEK', 'USD'];
     }
 
@@ -120,18 +122,21 @@ class GoCardless extends PaymentBase
     /**
      * Initiate a payment
      *
-     * @param int                           $iAmount      The payment amount
-     * @param Currency                      $oCurrency    The payment currency
-     * @param stdClass                      $oData        An array of driver data
-     * @param Resource\Invoice\Data\Payment $oPaymentData The payment data object
-     * @param string                        $sDescription The charge description
-     * @param Resource\Payment              $oPayment     The payment object
-     * @param Resource\Invoice              $oInvoice     The invoice object
-     * @param string                        $sSuccessUrl  The URL to go to after successful payment
-     * @param string                        $sErrorUrl    The URL to go to after failed payment
-     * @param Resource\Source|null          $oSource      The saved payment source to use
+     * @param int                           $iAmount          The payment amount
+     * @param Currency                      $oCurrency        The payment currency
+     * @param stdClass                      $oData            An array of driver data
+     * @param Resource\Invoice\Data\Payment $oPaymentData     The payment data object
+     * @param string                        $sDescription     The charge description
+     * @param Resource\Payment              $oPayment         The payment object
+     * @param Resource\Invoice              $oInvoice         The invoice object
+     * @param string                        $sSuccessUrl      The URL to go to after successful payment
+     * @param string                        $sErrorUrl        The URL to go to after failed payment
+     * @param bool                          $bCustomerPresent Whether the customer is present during the transaction
+     * @param Resource\Source|null          $oSource          The saved payment source to use
      *
      * @return ChargeResponse
+     * @throws FactoryException
+     * @throws ResponseException
      */
     public function charge(
         int $iAmount,
@@ -228,7 +233,7 @@ class GoCardless extends PaymentBase
                 'The gateway returned a malformed response, you may wish to try again.'
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $oChargeResponse->setStatusFailed(
                 $e->getMessage(),
                 $e->getCode(),
@@ -244,11 +249,13 @@ class GoCardless extends PaymentBase
     /**
      * Creates a new redirect flow for creating a new mandate
      *
-     * @param Client         $oClient         The GoCardless Client
-     * @param ChargeResponse $oChargeResponse The ChargeResponse object
-     * @param string         $sSuccessUrl     The success URL
+     * @param Client           $oClient         The GoCardless Client
+     * @param ChargeResponse   $oChargeResponse The ChargeResponse object
+     * @param Resource\Invoice $oInvoice        The invoice being charged
+     * @param string           $sSuccessUrl     The success URL
      *
      * @return ChargeResponse
+     * @throws ResponseException
      */
     protected function createNewRedirectFlow(
         Client $oClient,
@@ -310,7 +317,7 @@ class GoCardless extends PaymentBase
             if ($oGCResponse->api_response->status_code !== $oHttpCodes::STATUS_CREATED) {
                 $oChargeResponse
                     ->setStatusFailed(
-                        'Did not receive a 201 CREATED resposne when creating a redirect flow.',
+                        'Did not receive a 201 CREATED response when creating a redirect flow.',
                         null,
                         'An error occurred whilst communicating with the gateway, you may wish to try again.'
                     );
@@ -321,7 +328,7 @@ class GoCardless extends PaymentBase
                     $oGCResponse->api_response->body->redirect_flows->redirect_url
                 );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $oChargeResponse
                 ->setStatusFailed(
                     $e->getMessage(),
@@ -343,10 +350,12 @@ class GoCardless extends PaymentBase
      * @param string      $sSuccessUrl  The URL to redirect to after authorisation
      *
      * @return ScaResponse
+     * @throws NailsException
      */
     public function sca(ScaResponse $oScaResponse, array $aData, string $sSuccessUrl): ScaResponse
     {
         //  @todo (Pablo - 2019-07-24) - Implement this method
+        throw new NailsException('Method not implemented');
     }
 
     // --------------------------------------------------------------------------
@@ -360,6 +369,8 @@ class GoCardless extends PaymentBase
      * @param array            $aPostVars Any $_POST variables passed from the redirect flow
      *
      * @return CompleteResponse
+     * @throws FactoryException
+     * @throws ResponseException
      */
     public function complete(
         Resource\Payment $oPayment,
@@ -428,8 +439,6 @@ class GoCardless extends PaymentBase
                     $sMandateId = $oGCResponse->api_response->body->redirect_flows->links->mandate;
                     /** @var Source $oSourceModel */
                     $oSourceModel = Factory::model('Source', Constants::MODULE_SLUG);
-                    /** @var DateTime $oNow */
-                    $oNow = Factory::factory('DateTime');
 
                     $oSourceModel->create([
                         'customer_id' => $oInvoice->customer->id,
@@ -503,7 +512,7 @@ class GoCardless extends PaymentBase
                 'The gateway returned a malformed response, you may wish to try again.'
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $oCompleteResponse->setStatusFailed(
                 $e->getMessage(),
                 $e->getCode(),
@@ -525,10 +534,11 @@ class GoCardless extends PaymentBase
      * @param int                           $iAmount      The amount of the payment
      * @param Currency                      $oCurrency    The currency in which to take payment
      * @param Resource\Invoice              $oInvoice     The invoice object
-     * @param Resource\Invoice\Data\Payment $oPaymentData The payment'spayment data object
+     * @param Resource\Invoice\Data\Payment $oPaymentData The payment's payment data object
      *
      * @return string
      * @throws FactoryException
+     * @throws GoCardlessPro\Core\Exception\InvalidStateException
      */
     protected function createPayment(
         Client $oClient,
@@ -590,12 +600,10 @@ class GoCardless extends PaymentBase
             throw new DriverException('Missing GoCardless Access Token.', 1);
         }
 
-        $oClient = new Client([
+        return new Client([
             'access_token' => $sAccessToken,
             'environment'  => $sEnvironment,
         ]);
-
-        return $oClient;
     }
 
     // --------------------------------------------------------------------------
@@ -680,6 +688,8 @@ class GoCardless extends PaymentBase
      * @param Resource\Invoice              $oInvoice       The invoice object
      *
      * @return RefundResponse
+     * @throws ResponseException
+     * @throws FactoryException
      */
     public function refund(
         string $sTransactionId,
@@ -700,78 +710,6 @@ class GoCardless extends PaymentBase
             null,
             'GoCardless refunds are not available right now.'
         );
-        return $oRefundResponse;
-
-        //  In order to refund we need to know the value of all successful refunds to date
-        //  plus we can only send up to 5 refunds total against a transaction
-        //  @todo
-
-        try {
-
-            $oClient     = $this->getClient();
-            $aMetaData   = $this->extractMetaData($oInvoice, $oPaymentData);
-            $oGCResponse = $oClient->refunds()->create(
-                [
-                    'params' => [
-                        'amount'                    => $iAmount,
-                        'metadata'                  => $aMetaData,
-                        'total_amount_confirmation' => $iAmount,
-                        'links'                     => [
-                            'payment' => $sTransactionId,
-                        ],
-                    ],
-                ]
-            );
-
-            dumpanddie($oGCResponse);
-
-            $sTransactionId = null;
-
-            //  @todo - correct?
-            if ($oGCResponse->api_response->status_code === 201) {
-                $sTransactionId = $oGCResponse->api_response->body->refunds->id;
-            }
-
-            $oRefundResponse
-                ->setStatusProcessing()
-                ->setTransactionId($sTransactionId)
-                ->setFee($this->calculateFee($iAmount)); //  @todo will this calculation be correct for partial payments?
-
-        } catch (ApiConnectionException $e) {
-
-            //  Network error
-            $oRefundResponse->setStatusFailed(
-                $e->getMessage(),
-                $e->getCode(),
-                'There was a problem connecting to the gateway, you may wish to try again.'
-            );
-
-        } catch (ApiException $e) {
-
-            //  API request failed / record couldn't be created.
-            $oRefundResponse->setStatusFailed(
-                $e->getMessage(),
-                $e->getCode(),
-                'The gateway rejected the request, you may wish to try again.'
-            );
-
-        } catch (MalformedResponseException $e) {
-
-            //  Unexpected non-JSON response
-            $oRefundResponse->setStatusFailed(
-                $e->getMessage(),
-                $e->getCode(),
-                'The gateway returned a malformed response, you may wish to try again.'
-            );
-
-        } catch (\Exception $e) {
-
-            $oRefundResponse->setStatusFailed(
-                $e->getMessage(),
-                $e->getCode(),
-                'An error occurred while executing the request.'
-            );
-        }
 
         return $oRefundResponse;
     }
@@ -781,7 +719,7 @@ class GoCardless extends PaymentBase
     /**
      * Creates a new payment source, returns a semi-populated source resource
      *
-     * @param Resource\Source $oResource The Resouce object to update
+     * @param Resource\Source $oResource The Source object to update
      * @param array           $aData     Data passed from the caller
      *
      * @throws DriverException
@@ -807,18 +745,20 @@ class GoCardless extends PaymentBase
                 $oBankAccount = $oClient
                     ->customerBankAccounts()
                     ->get($oMandate->links->customer_bank_account);
+
+                $oResource->label = sprintf(
+                    'Direct Debit (%s account ending %s)',
+                    $oBankAccount->bank_name,
+                    $oBankAccount->account_number_ending
+                );
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new DriverException(
                 '"' . $sMandateId . '" is not a valid mandate ID.',
                 $e->getCode(),
                 $e
             );
-        }
-
-        if (empty($oResource->label)) {
-            $oResource->label = 'Direct Debit (' . $oBankAccount->bank_name . ' account ending ' . $oBankAccount->account_number_ending . ')';
         }
 
         $oResource->data = (object) [
@@ -832,6 +772,8 @@ class GoCardless extends PaymentBase
      * Updates a payment source on the gateway
      *
      * @param Resource\Source $oResource The Resource being updated
+     *
+     * @throws NailsException
      */
     public function updateSource(
         Resource\Source $oResource
@@ -846,6 +788,8 @@ class GoCardless extends PaymentBase
      * Deletes a payment source from the gateway
      *
      * @param Resource\Source $oResource The Resource being deleted
+     *
+     * @throws NailsException
      */
     public function deleteSource(
         Resource\Source $oResource
@@ -857,13 +801,14 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Convinience method for creating a new customer on the gateway
+     * Convenience method for creating a new customer on the gateway
      *
      * @param array $aData The driver specific customer data
      *
      * @return GoCardlessPro\Resources\Customer
      * @throws DriverException
      * @throws NailsException
+     * @throws GoCardlessPro\Core\Exception\InvalidStateException
      */
     public function createCustomer(array $aData = []): GoCardlessPro\Resources\Customer
     {
@@ -888,7 +833,7 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Convinience method for retrieving an existing customer from the gateway
+     * Convenience method for retrieving an existing customer from the gateway
      *
      * @param mixed $mCustomerId The gateway's customer ID
      * @param array $aData       Any driver specific data
@@ -907,10 +852,13 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Convinience method for updating an existing customer on the gateway
+     * Convenience method for updating an existing customer on the gateway
      *
      * @param mixed $mCustomerId The gateway's customer ID
      * @param array $aData       The driver specific customer data
+     *
+     * @return GoCardlessPro\Resources\Customer
+     * @throws DriverException
      */
     public function updateCustomer($mCustomerId, array $aData = [])
     {
@@ -928,9 +876,11 @@ class GoCardless extends PaymentBase
     // --------------------------------------------------------------------------
 
     /**
-     * Convinience method for deleting an existing customer on the gateway
+     * Convenience method for deleting an existing customer on the gateway
      *
      * @param mixed $mCustomerId The gateway's customer ID
+     *
+     * @throws NailsException
      */
     public function deleteCustomer($mCustomerId): void
     {

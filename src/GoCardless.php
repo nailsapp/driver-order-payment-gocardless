@@ -685,6 +685,7 @@ class GoCardless extends PaymentBase
      * @param Resource\Invoice\Data\Payment $oPaymentData   The payment data object
      * @param string                        $sReason        The refund's reason
      * @param Resource\Payment              $oPayment       The payment object
+     * @param Resource\Refund               $oRefund        The refund object
      * @param Resource\Invoice              $oInvoice       The invoice object
      *
      * @return RefundResponse
@@ -698,6 +699,7 @@ class GoCardless extends PaymentBase
         Resource\Invoice\Data\Payment $oPaymentData,
         string $sReason,
         Resource\Payment $oPayment,
+        Resource\Refund $oRefund,
         Resource\Invoice $oInvoice
     ): RefundResponse {
 

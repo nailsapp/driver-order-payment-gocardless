@@ -34,8 +34,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Nails\\Invoice\\Driver\\": "src/",
-            "Nails\\Invoice\\Driver\\GoCardless\\": "src/GoCardless/"
+            "Nails\\Invoice\\Driver\\Payment\\": "src/",
+            "Nails\\Invoice\\Driver\\Payment\\GoCardless\\": "src/GoCardless/"
         }
     },
     "extra": {

@@ -345,14 +345,14 @@ class GoCardless extends PaymentBase
     /**
      * Handles any SCA requests
      *
-     * @param ScaResponse $oScaResponse The SCA Response object
-     * @param array       $aData        Any saved SCA data
-     * @param string      $sSuccessUrl  The URL to redirect to after authorisation
+     * @param ScaResponse               $oScaResponse The SCA Response object
+     * @param Resource\Payment\Data\Sca $oData        Any saved SCA data
+     * @param string                    $sSuccessUrl  The URL to redirect to after authorisation
      *
      * @return ScaResponse
      * @throws NailsException
      */
-    public function sca(ScaResponse $oScaResponse, array $aData, string $sSuccessUrl): ScaResponse
+    public function sca(ScaResponse $oScaResponse, Resource\Payment\Data\Sca $oData, string $sSuccessUrl): ScaResponse
     {
         //  @todo (Pablo - 2019-07-24) - Implement this method
         throw new NailsException('Method not implemented');

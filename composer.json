@@ -27,7 +27,7 @@
     "prefer-stable": true,
     "require": {
         "nails/module-invoice": "dev-develop",
-        "gocardless/gocardless-pro": "4.*"
+        "gocardless/gocardless-pro": "5.*"
     },
     "require-dev": {
         "phpunit/phpunit": "9.*"
